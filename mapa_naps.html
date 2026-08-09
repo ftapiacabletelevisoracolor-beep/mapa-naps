@@ -1,1 +1,471 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Mapa de NAPs — CTC San Rafael</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css"/>
+<style>
+  :root{
+    --bg:#12141a; --panel:#1a1d23; --panel2:#20242c; --line:#2a2f3a;
+    --ink:#e4e8f0; --muted:#7a8196; --green:#4fcf8a; --blue:#4f8ef7; --orange:#f7a34f; --gray:#5a6070;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif}
+  #map{position:absolute;inset:0}
+  .leaflet-container{background:var(--bg)}
 
+  #topbar{
+    position:absolute;top:12px;left:12px;right:12px;z-index:1000;
+    display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;pointer-events:none;
+  }
+  .card{background:rgba(26,29,35,.94);border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 6px 24px rgba(0,0,0,.35);pointer-events:auto;backdrop-filter:blur(6px)}
+
+  #titleCard{padding:9px 14px;display:flex;align-items:center;gap:10px}
+  #titleCard b{font-size:14px;letter-spacing:.2px}
+  #titleCard .sub{font-size:11px;color:var(--muted)}
+
+  #searchCard{padding:8px 10px;display:flex;align-items:center;gap:8px;flex:1;min-width:220px;max-width:340px}
+  #searchCard input{
+    flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    border-radius:7px;padding:7px 10px;font-size:13px;outline:none
+  }
+  #searchCard input:focus{border-color:var(--blue)}
+  #searchCount{font-size:11px;color:var(--muted);white-space:nowrap}
+
+  #statusCard{padding:8px 12px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px}
+  #statusDot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:none}
+  #statusDot.off{background:var(--gray)}
+  #statusDot.err{background:#e0554f}
+  #refreshBtn{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:6px;
+    padding:4px 8px;font-size:11px;cursor:pointer}
+  #refreshBtn:hover{border-color:var(--blue)}
+
+  #panel{
+    position:absolute;bottom:12px;left:12px;z-index:1000;padding:12px 14px;min-width:190px;
+  }
+  #panel h4{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600}
+  .layerRow{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0;cursor:pointer;user-select:none}
+  .layerRow input{accent-color:var(--blue);cursor:pointer}
+  .swatch{width:10px;height:10px;border-radius:50%;flex:none}
+  .divider{height:1px;background:var(--line);margin:8px 0}
+
+  #emptyState{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:900;
+    text-align:center;color:var(--muted);font-size:13px;max-width:280px;display:none
+  }
+
+  #statsBar{
+    position:absolute;top:64px;left:12px;z-index:1000;padding:9px 14px;display:flex;gap:18px;
+    flex-wrap:wrap;font-size:12px;
+  }
+  #statsBar .stat b{font-size:15px;color:var(--ink);display:block;line-height:1.1}
+  #statsBar .stat span{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px}
+  .locFree{color:var(--muted);font-size:10.5px;margin-left:4px}
+
+  /* ── Pantalla de acceso ── */
+  #gate{
+    position:fixed;inset:0;z-index:5000;background:radial-gradient(ellipse at top,#181b22,#0d0f13 70%);
+    display:flex;align-items:center;justify-content:center;
+  }
+  #gateBox{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px 26px;
+    width:300px;box-shadow:0 12px 40px rgba(0,0,0,.5);
+  }
+  #gateBox h2{margin:0 0 4px;font-size:16px}
+  #gateBox p{margin:0 0 18px;font-size:12px;color:var(--muted);line-height:1.4}
+  #gateBox label{display:block;font-size:11px;color:var(--muted);margin:12px 0 5px}
+  #gateBox input, #gateBox select{
+    width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    border-radius:7px;padding:9px 10px;font-size:13.5px;outline:none
+  }
+  #gateBox input:focus, #gateBox select:focus{border-color:var(--blue)}
+  #gateBtn{
+    width:100%;margin-top:20px;background:var(--blue);color:#0d0f13;border:none;border-radius:7px;
+    padding:10px;font-size:13.5px;font-weight:700;cursor:pointer
+  }
+  #gateBtn:hover{filter:brightness(1.08)}
+  #gateBtn:disabled{opacity:.6;cursor:default}
+  #gateErr{color:#e0554f;font-size:11.5px;margin-top:10px;min-height:14px}
+  #logoutBtn{
+    position:absolute;bottom:12px;right:12px;z-index:1000;padding:6px 10px;font-size:11px;
+    color:var(--muted);cursor:pointer;background:rgba(26,29,35,.94);border:1px solid var(--line);border-radius:8px
+  }
+  #logoutBtn:hover{color:var(--ink);border-color:var(--blue)}
+
+  .sg-nap-tip{background:var(--panel)!important;border:1px solid var(--green)!important;color:var(--ink)!important;
+    font-size:11.5px!important;padding:7px 10px!important;border-radius:6px!important;
+    box-shadow:0 3px 14px rgba(0,0,0,.5)!important;max-width:260px!important;line-height:1.45!important}
+  .sg-nap-tip::before{display:none!important}
+
+  @media (max-width:520px){
+    #topbar{flex-direction:column}
+    #searchCard{max-width:none}
+    #panel{bottom:auto;top:150px}
+  }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div id="gateBox">
+    <h2>📡 Mapa de NAPs</h2>
+    <p>Acceso exclusivo para supervisores CTC. Ingresá tus datos y la clave que te pasó Fabri.</p>
+    <label>Nombre</label>
+    <select id="gateNombre">
+      <option value="">Elegí tu nombre...</option>
+      <option value="Cristian Toselli">Cristian Toselli</option>
+      <option value="Jose Morales">Jose Morales</option>
+    </select>
+    <label>DNI</label>
+    <input id="gateDni" type="text" inputmode="numeric" autocomplete="off"/>
+    <label>Clave de acceso</label>
+    <input id="gatePass" type="password" autocomplete="off"/>
+    <button id="gateBtn">Entrar</button>
+    <div id="gateErr"></div>
+  </div>
+</div>
+
+<div id="map"></div>
+<div id="logoutBtn">Cerrar sesión</div>
+
+<div id="topbar">
+  <div class="card" id="titleCard">
+    <b>📡 Mapa de NAPs</b>
+    <span class="sub" id="totalTxt">— cargando —</span>
+  </div>
+  <div class="card" id="searchCard">
+    <input id="searchInput" type="text" placeholder="Filtrar por placa o serie..." autocomplete="off"/>
+    <span id="searchCount"></span>
+  </div>
+  <div class="card" id="statusCard">
+    <span id="statusDot"></span>
+    <span id="statusTxt">actualizado hace un momento</span>
+    <button id="refreshBtn">↻</button>
+  </div>
+</div>
+
+<div id="statsBar" class="card">
+  <div class="stat"><b id="statTotalNaps">—</b><span>NAPs</span></div>
+  <div class="stat"><b id="statTotalPuertos">—</b><span>Puertos totales</span></div>
+  <div class="stat"><b id="statTotalLibres">—</b><span>Libres</span></div>
+  <div class="stat"><b id="statPctLibre">—</b><span>% libre</span></div>
+</div>
+
+<div id="panel" class="card">
+  <h4>Localidades</h4>
+  <div id="localidadLayers"></div>
+  <div class="divider"></div>
+  <h4>Puertos libres</h4>
+  <div class="layerRow"><span class="swatch" style="background:#4fcf8a"></span> 12 o más</div>
+  <div class="layerRow"><span class="swatch" style="background:#4f8ef7"></span> 8 a 11</div>
+  <div class="layerRow"><span class="swatch" style="background:#f7a34f"></span> 1 a 7</div>
+  <div class="layerRow"><span class="swatch" style="background:#5a6070"></span> 0 / sin datos</div>
+</div>
+
+<div id="emptyState">
+  Todavía no hay NAPs cargadas.<br>Verificá la URL de datos configurada en el archivo.
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+<script>
+/* ════════════════════════════════════════════════════════════════
+   CONFIGURACIÓN
+   ════════════════════════════════════════════════════════════════ */
+
+// URL /exec del Apps Script dedicado a NAPs (apps_script_naps.gs).
+// Deploy único, esta URL no rota mes a mes.
+var NAPS_DATA_URL = 'https://script.google.com/macros/s/AKfycbzmPcVWVMKedmPno_St6lNQqt6iX7ipIO-hTQyO7vXqIHuYLyvF8WMn_9YfhYRuK6EG/exec';
+
+// Cada cuánto reconsulta sola (ms). 5 minutos por defecto.
+var AUTO_REFRESH_MS = 5*60*1000;
+
+// Centro inicial: San Rafael, Mendoza.
+var CENTER = [-34.6177, -68.3301];
+var ZOOM = 12;
+
+/* ════════════════════════════════════════════════════════════════
+   MAPA BASE
+   ════════════════════════════════════════════════════════════════ */
+
+var map = L.map('map',{zoomControl:false,attributionControl:true}).setView(CENTER, ZOOM);
+L.control.zoom({position:'bottomright'}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+  attribution:'&copy; OpenStreetMap &copy; CARTO',
+  subdomains:'abcd', maxZoom:19
+}).addTo(map);
+
+var cluster = L.markerClusterGroup({
+  maxClusterRadius:55,
+  iconCreateFunction:function(c){
+    var n=c.getChildCount();
+    return L.divIcon({
+      html:'<div style="background:#20242c;border:2px solid #4f8ef7;color:#e4e8f0;border-radius:50%;'
+        +'width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">'+n+'</div>',
+      className:'', iconSize:[34,34]
+    });
+  }
+});
+map.addLayer(cluster);
+
+/* ════════════════════════════════════════════════════════════════
+   ESTADO
+   ════════════════════════════════════════════════════════════════ */
+
+var ALL_NAPS = [];
+var localidadOn = {};   // localidad -> bool
+var markersByNap = [];  // {nap, marker, localidad}
+var filtroTexto = '';
+
+function napColor(nap){
+  if(nap.puertos>=12) return '#4fcf8a';
+  if(nap.puertos>=8)  return '#4f8ef7';
+  if(nap.puertos>0)   return '#f7a34f';
+  return '#5a6070';
+}
+
+function napTooltipHtml(nap){
+  var h='<b>'+escapeHtml(nap.serie||'(sin serie)')+'</b><br>'
+    +escapeHtml(nap.localidad||'')+' · '+(nap.puertos||0)+' puertos';
+  if(nap.libres!==undefined && nap.libres!=='' && nap.libres!==null){
+    h+=' · <span style="color:#4fcf8a">'+nap.libres+' libres</span>';
+  }
+  if(nap.placa) h+='<br><span style="color:#7a8196">'+escapeHtml(nap.placa)+'</span>';
+  if(nap.descripcion) h+='<br><span style="color:#7a8196;font-style:italic">'+escapeHtml(nap.descripcion)+'</span>';
+  return h;
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g, function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];
+});}
+
+/* ════════════════════════════════════════════════════════════════
+   RENDER
+   ════════════════════════════════════════════════════════════════ */
+
+function buildLocalidadPanel(){
+  var porLoc = {}; // loc -> {naps, puertos, libres}
+  ALL_NAPS.forEach(function(n){
+    var loc = n.localidad || 'Sin localidad';
+    if(!porLoc[loc]) porLoc[loc]={naps:0,puertos:0,libres:0,libresConDatos:false};
+    porLoc[loc].naps++;
+    porLoc[loc].puertos += (n.puertos||0);
+    if(n.libres!==undefined && n.libres!=='' && n.libres!==null){
+      porLoc[loc].libres += Number(n.libres)||0;
+      porLoc[loc].libresConDatos = true;
+    }
+  });
+  var names = Object.keys(porLoc).sort();
+  var box = document.getElementById('localidadLayers');
+  box.innerHTML='';
+  names.forEach(function(loc){
+    if(!(loc in localidadOn)) localidadOn[loc]=true;
+    var info = porLoc[loc];
+    var libresTxt = info.libresConDatos ? (info.libres+' libres') : (info.puertos+' puertos');
+    var row=document.createElement('div');
+    row.className='layerRow';
+    row.innerHTML='<input type="checkbox" '+(localidadOn[loc]?'checked':'')+'> '+escapeHtml(loc)
+      +'<span class="locFree">('+libresTxt+')</span>';
+    row.querySelector('input').addEventListener('change',function(e){
+      localidadOn[loc]=e.target.checked;
+      renderMarkers();
+    });
+    box.appendChild(row);
+  });
+}
+
+function actualizarStats(){
+  var totalNaps = ALL_NAPS.length;
+  var totalPuertos = 0, totalLibres = 0, conDatosLibres = 0;
+  ALL_NAPS.forEach(function(n){
+    totalPuertos += (n.puertos||0);
+    if(n.libres!==undefined && n.libres!=='' && n.libres!==null){
+      totalLibres += Number(n.libres)||0;
+      conDatosLibres++;
+    }
+  });
+  document.getElementById('statTotalNaps').textContent = totalNaps;
+  document.getElementById('statTotalPuertos').textContent = totalPuertos;
+  document.getElementById('statTotalLibres').textContent = conDatosLibres ? totalLibres : '—';
+  document.getElementById('statPctLibre').textContent = (conDatosLibres && totalPuertos)
+    ? Math.round(100*totalLibres/totalPuertos)+'%' : '—';
+}
+
+function renderMarkers(){
+  cluster.clearLayers();
+  var visibles=0;
+  var texto = filtroTexto.trim().toLowerCase();
+
+  ALL_NAPS.forEach(function(nap){
+    if(nap.lat===null || nap.lat===undefined || nap.lng===null || nap.lng===undefined) return;
+    var loc = nap.localidad || 'Sin localidad';
+    if(localidadOn[loc]===false) return;
+    if(texto){
+      var hay = ((nap.placa||'')+' '+(nap.serie||'')).toLowerCase();
+      if(hay.indexOf(texto)===-1) return;
+    }
+    var color = napColor(nap);
+    var icon = L.divIcon({
+      className:'',
+      html:'<div style="width:14px;height:14px;border-radius:50%;background:'+color+';border:2px solid rgba(0,0,0,.4)"></div>',
+      iconSize:[14,14], iconAnchor:[7,7]
+    });
+    var m = L.marker([nap.lat,nap.lng],{icon:icon});
+    m.bindTooltip(napTooltipHtml(nap),{sticky:true,opacity:0.97,className:'sg-nap-tip'});
+    cluster.addLayer(m);
+    visibles++;
+  });
+
+  document.getElementById('searchCount').textContent = texto ? (visibles+' resultado'+(visibles===1?'':'s')) : '';
+  document.getElementById('emptyState').style.display = ALL_NAPS.length===0 ? 'block':'none';
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CARGA DE DATOS
+   ════════════════════════════════════════════════════════════════ */
+
+function setStatus(txt, cls){
+  document.getElementById('statusTxt').textContent = txt;
+  var dot=document.getElementById('statusDot');
+  dot.className = cls||'';
+}
+
+function cargarNaps(){
+  if(!NAPS_DATA_URL || NAPS_DATA_URL.indexOf('PEGAR_ACA')===0){
+    setStatus('falta configurar la URL de datos','err');
+    document.getElementById('emptyState').style.display='block';
+    return;
+  }
+  var sesion = getSesion();
+  if(!sesion) return; // sin sesión válida no se pide nada
+
+  setStatus('actualizando...','off');
+  fetch(NAPS_DATA_URL+'?pass='+encodeURIComponent(sesion.pass), {cache:'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d.ok){
+        if(d.error==='unauthorized'){
+          // la clave guardada ya no sirve (la cambiaron) -> vuelve a pedir acceso
+          clearSesion(); mostrarGate('Tu acceso venció, ingresá la clave de nuevo.');
+          return;
+        }
+        throw new Error(d.error||'respuesta invalida');
+      }
+      ALL_NAPS = d.naps||[];
+      document.getElementById('totalTxt').textContent = '— '+ALL_NAPS.length+' NAPs cargadas';
+      buildLocalidadPanel();
+      actualizarStats();
+      renderMarkers();
+      var ahora = new Date();
+      setStatus('actualizado '+ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),'');
+    })
+    .catch(function(e){
+      console.error('[Mapa NAPs] error cargando datos', e);
+      setStatus('error al actualizar','err');
+    });
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ACCESO (nombre + DNI + clave, validado en el Apps Script)
+   ════════════════════════════════════════════════════════════════ */
+
+var SESION_KEY = 'mapaNaps_sesion_v1';
+
+function getSesion(){
+  try{
+    var raw = localStorage.getItem(SESION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function setSesion(s){
+  try{ localStorage.setItem(SESION_KEY, JSON.stringify(s)); }catch(e){}
+}
+function clearSesion(){
+  try{ localStorage.removeItem(SESION_KEY); }catch(e){}
+}
+
+function mostrarGate(mensajeError){
+  document.getElementById('gate').style.display='flex';
+  document.getElementById('gateErr').textContent = mensajeError||'';
+}
+function ocultarGate(){
+  document.getElementById('gate').style.display='none';
+}
+
+function intentarLogin(){
+  var nombre = document.getElementById('gateNombre').value;
+  var dni = document.getElementById('gateDni').value.trim();
+  var pass = document.getElementById('gatePass').value;
+  var btn = document.getElementById('gateBtn');
+
+  if(!nombre || !dni || !pass){
+    document.getElementById('gateErr').textContent = 'Completá los tres campos.';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Verificando...';
+  fetch(NAPS_DATA_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify({tipo:'login', nombre:nombre, dni:dni, pass:pass})
+  }).then(function(r){ return r.json(); })
+  .then(function(d){
+    btn.disabled=false; btn.textContent='Entrar';
+    if(d.ok){
+      setSesion({nombre:nombre, dni:dni, pass:pass});
+      ocultarGate();
+      cargarNaps();
+    } else {
+      document.getElementById('gateErr').textContent = d.error||'Clave incorrecta.';
+    }
+  }).catch(function(e){
+    btn.disabled=false; btn.textContent='Entrar';
+    document.getElementById('gateErr').textContent = 'No se pudo conectar. Probá de nuevo.';
+  });
+}
+
+document.getElementById('gateBtn').addEventListener('click', intentarLogin);
+['gateNombre','gateDni','gatePass'].forEach(function(id){
+  document.getElementById(id).addEventListener('keydown',function(e){
+    if(e.key==='Enter') intentarLogin();
+  });
+});
+document.getElementById('logoutBtn').addEventListener('click', function(){
+  clearSesion();
+  ALL_NAPS=[];
+  document.getElementById('gateNombre').value='';
+  document.getElementById('gateDni').value='';
+  document.getElementById('gatePass').value='';
+  mostrarGate('');
+});
+
+/* ════════════════════════════════════════════════════════════════
+   EVENTOS
+   ════════════════════════════════════════════════════════════════ */
+
+var searchInput = document.getElementById('searchInput');
+var searchTimer=null;
+searchInput.addEventListener('input', function(e){
+  clearTimeout(searchTimer);
+  searchTimer=setTimeout(function(){
+    filtroTexto = e.target.value;
+    renderMarkers();
+  }, 120);
+});
+
+document.getElementById('refreshBtn').addEventListener('click', cargarNaps);
+
+// Arranque: si ya hay una sesión guardada en este dispositivo, entra directo
+// (el Apps Script igual revalida la clave en cada consulta); si no, pide acceso.
+if(getSesion()){
+  ocultarGate();
+  cargarNaps();
+} else {
+  mostrarGate('');
+}
+setInterval(cargarNaps, AUTO_REFRESH_MS);
+</script>
+</body>
+</html>
