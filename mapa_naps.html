@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
 <style>
   :root{
     --bg:#12141a; --panel:#1a1d23; --panel2:#20242c; --line:#2a2f3a;
@@ -65,6 +66,22 @@
   #statsBar .stat b{font-size:15px;color:var(--ink);display:block;line-height:1.1}
   #statsBar .stat span{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px}
   .locFree{color:var(--muted);font-size:10.5px;margin-left:4px}
+
+  #drawCard{padding:0}
+  #drawBtn{
+    background:transparent;border:none;color:var(--ink);padding:9px 14px;font-size:12px;
+    cursor:pointer;font-weight:600
+  }
+  #drawBtn:hover{color:var(--blue)}
+  #drawBtn.active{color:var(--green)}
+
+  #quadPanel{
+    position:absolute;top:64px;right:12px;z-index:1000;padding:12px 14px;min-width:220px;display:none;
+  }
+  #quadPanel h4{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600}
+  .qStat{display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;font-size:12.5px}
+  .qStat b{font-size:14px}
+  .qStat span{color:var(--muted);font-size:10.5px;text-align:right;margin-left:10px}
 
   /* ── Pantalla de acceso ── */
   #gate{
@@ -146,6 +163,21 @@
     <span id="statusTxt">actualizado hace un momento</span>
     <button id="refreshBtn">↻</button>
   </div>
+  <div class="card" id="drawCard">
+    <button id="drawBtn" title="Dibujar un cuadrante para ver totales de esa zona">▭ Cuadrante</button>
+  </div>
+</div>
+
+<div id="quadPanel" class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+    <h4 style="margin:0">Zona seleccionada</h4>
+    <span id="quadClose" style="cursor:pointer;color:var(--muted);font-size:14px">✕</span>
+  </div>
+  <div class="qStat"><b id="qNaps">—</b><span>NAPs</span></div>
+  <div class="qStat"><b id="qClientes">—</b><span>Clientes conectados (ocupados)</span></div>
+  <div class="qStat"><b id="qLibres">—</b><span>Puertos libres</span></div>
+  <div class="qStat"><b id="qPct">—</b><span>% ocupación</span></div>
+  <div id="quadNote" style="font-size:10.5px;color:var(--muted);margin-top:6px"></div>
 </div>
 
 <div id="statsBar" class="card">
@@ -172,6 +204,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <script>
 /* ════════════════════════════════════════════════════════════════
    CONFIGURACIÓN
@@ -211,6 +244,11 @@ var cluster = L.markerClusterGroup({
   }
 });
 map.addLayer(cluster);
+
+var drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
+var drawHandler = null;
+var drawActive = false;
 
 /* ════════════════════════════════════════════════════════════════
    ESTADO
@@ -315,6 +353,7 @@ function renderMarkers(){
     });
     var m = L.marker([nap.lat,nap.lng],{icon:icon});
     m.bindTooltip(napTooltipHtml(nap),{sticky:true,opacity:0.97,className:'sg-nap-tip'});
+    m.on('click', function(){ m.openTooltip(); });
     cluster.addLayer(m);
     visibles++;
   });
@@ -456,6 +495,83 @@ searchInput.addEventListener('input', function(e){
 });
 
 document.getElementById('refreshBtn').addEventListener('click', cargarNaps);
+
+/* ════════════════════════════════════════════════════════════════
+   CUADRANTE: dibujar un rectángulo y ver totales de esa zona
+   ════════════════════════════════════════════════════════════════ */
+
+function napEstaVisible(nap){
+  // Mismos criterios que renderMarkers: respeta capas de localidad y filtro de texto activos
+  var loc = nap.localidad || 'Sin localidad';
+  if(localidadOn[loc]===false) return false;
+  var texto = filtroTexto.trim().toLowerCase();
+  if(texto){
+    var hay = ((nap.placa||'')+' '+(nap.serie||'')).toLowerCase();
+    if(hay.indexOf(texto)===-1) return false;
+  }
+  return true;
+}
+
+function calcularCuadrante(bounds){
+  var naps=0, puertos=0, ocupados=0, libres=0, conDatos=0;
+  ALL_NAPS.forEach(function(nap){
+    if(nap.lat===null||nap.lat===undefined||nap.lng===null||nap.lng===undefined) return;
+    if(!napEstaVisible(nap)) return;
+    if(!bounds.contains([nap.lat,nap.lng])) return;
+    naps++;
+    puertos += (nap.puertos||0);
+    if(nap.libres!==undefined && nap.libres!=='' && nap.libres!==null){
+      libres += Number(nap.libres)||0;
+      conDatos++;
+    }
+    if(nap.ocupados!==undefined && nap.ocupados!=='' && nap.ocupados!==null){
+      ocupados += Number(nap.ocupados)||0;
+    }
+  });
+
+  document.getElementById('qNaps').textContent = naps;
+  document.getElementById('qClientes').textContent = conDatos ? ocupados : '—';
+  document.getElementById('qLibres').textContent = conDatos ? libres : '—';
+  document.getElementById('qPct').textContent = (conDatos && puertos) ? Math.round(100*ocupados/puertos)+'%' : '—';
+
+  var nota = '';
+  if(naps===0) nota = 'No hay NAPs cargadas en esa zona.';
+  else if(conDatos < naps) nota = conDatos+' de '+naps+' NAPs tienen datos de ocupación (el resto solo tiene puertos totales, todavía sin consultar disponibilidad).';
+  document.getElementById('quadNote').textContent = nota;
+  document.getElementById('quadPanel').style.display='block';
+}
+
+function activarDibujo(){
+  if(drawActive) return;
+  drawActive = true;
+  document.getElementById('drawBtn').classList.add('active');
+  document.getElementById('drawBtn').textContent = '✕ Cancelar';
+  drawHandler = new L.Draw.Rectangle(map, {shapeOptions:{color:'#4f8ef7',weight:2,fillOpacity:.08}});
+  drawHandler.enable();
+}
+function desactivarDibujo(){
+  drawActive = false;
+  document.getElementById('drawBtn').classList.remove('active');
+  document.getElementById('drawBtn').textContent = '▭ Cuadrante';
+  if(drawHandler){ drawHandler.disable(); drawHandler=null; }
+}
+
+document.getElementById('drawBtn').addEventListener('click', function(){
+  if(drawActive){ desactivarDibujo(); return; }
+  activarDibujo();
+});
+
+map.on(L.Draw.Event.CREATED, function(e){
+  drawnItems.clearLayers();
+  drawnItems.addLayer(e.layer);
+  calcularCuadrante(e.layer.getBounds());
+  desactivarDibujo();
+});
+
+document.getElementById('quadClose').addEventListener('click', function(){
+  document.getElementById('quadPanel').style.display='none';
+  drawnItems.clearLayers();
+});
 
 // Arranque: si ya hay una sesión guardada en este dispositivo, entra directo
 // (el Apps Script igual revalida la clave en cada consulta); si no, pide acceso.
