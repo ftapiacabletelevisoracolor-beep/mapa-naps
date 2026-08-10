@@ -37,6 +37,7 @@
   #left h2{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#7a8196;margin:0 0 10px}
   #nap-search{margin-bottom:8px}
   #nap-map{height:220px;border-radius:8px;margin-bottom:10px;border:1px solid #2e3340}
+  #nap-map:fullscreen,#nap-map:-webkit-full-screen{height:100vh;width:100vw;border-radius:0}
   #nap-sel{font-size:12px;background:#0d0f13;border:1px solid #2e3340;border-radius:8px;padding:8px 10px;margin-bottom:10px;display:none}
   #nap-sel.show{display:block}
   #nap-sel b{color:#4f8ef7}
@@ -113,16 +114,17 @@
       <h2>Nuevo caso</h2>
       <label>Nro. cliente</label>
       <input type="text" id="f-cli-nro" inputmode="numeric"/>
+      <div id="f-cli-buscando" style="font-size:11px;color:#7a8196;display:none;margin-top:4px">Buscando cliente...</div>
       <label>Nombre del cliente</label>
       <input type="text" id="f-cli-nombre"/>
       <label>Dirección</label>
       <input type="text" id="f-direccion"/>
-      <label>Técnico asignado</label>
-      <select id="f-tecnico"><option value="">Elegí un técnico...</option></select>
+      <label>Supervisor NAP asignado</label>
+      <select id="f-tecnico"><option value="">Elegí un supervisor...</option></select>
 
       <h2 style="margin-top:18px">NAP asociada</h2>
       <input type="text" id="nap-search" placeholder="Buscar NAP por placa o serie..."/>
-      <div id="nap-map"></div>
+      <div id="nap-map" style="position:relative"><button id="nap-fs-btn" title="Pantalla completa" style="position:absolute;top:8px;right:8px;z-index:1000;background:#171a20;border:1px solid #2e3340;border-radius:6px;color:#e4e8f0;cursor:pointer;width:30px;height:30px">⛶</button></div>
       <div id="nap-sel"></div>
 
       <button class="btn-p" id="crear-btn">+ Crear caso</button>
@@ -160,35 +162,7 @@
 // ══════════════════════════════════════════════════════════
 var API_URL = 'https://script.google.com/macros/s/AKfycbzmPcVWVMKedmPno_St6lNQqt6iX7ipIO-hTQyO7vXqIHuYLyvF8WMn_9YfhYRuK6EG/exec';
 
-var TECNICOS = [
-  "AGUILERA SANTIAGO","ALANES RAMON FRANCISCO","ALLAIME JORGE","ARABIA ELIAS","ARABIA LUCAS ABEL",
-  "ARZA BRIAN ALBANO","AVARSUA GABRIEL","BAGNATO LUCIANO JOSE","BARCHOVSKI JUAN RICARDO",
-  "BARZOLA JOSE IGNACIO","BARZOLA ROBERTO MARIO","BLOISSY MAURICIO","BOGGIA CARLOS EMANUEL",
-  "BOTTERO NICOLAS","BRIAN MARTINEZ","BUENO MARCELO ADRIAN","BUSTAMANTE RODRIGO","BUSTOS ANDRES",
-  "CALZADA ADRIAN ALEJANDRO","CAROLINA MARTINEZ","CASADO MAURO DANIEL","CASATTI ANGEL DARIO",
-  "CASATTI JOSE ALBERTO","CASATTI RICARDO ERNESTO","CASTALETA ALEXIS IVAN","CERDA HECTOR MAURICIO",
-  "CERNA RAMON ALBERTO","CERVILLA DANILO","CHIAPA ALEJANDRO","CICHOCKI ALEX","COPPARI MARCO",
-  "CRESPILLO DANIEL","DAGATA DAVID","DE MARCHI NOE ADRIAN","DE NONI AYRTON JOEL","DIAZ CARLOS ALBERTO",
-  "DOS SANTOS DAYAN","DOTTORI CRISTIAN","DUARTE ABDUL","EDUARDO GRAU","EMILIANO BARZOLA",
-  "ESCOBAR LUCIANO RENE JESUS","ESPOSITO FERNANDO","FAVARI JORGE","FERNANDEZ DAVID",
-  "FIOCHETTI DENIS AGUSTIN","FRANCO DENIS ARIEL","GALDAME ALCIDES FABIAN","GARAY AGUSTIN",
-  "GARCIA CLAUDIO FERNANDO","GARCIA FRANCISCO ARIEL","GATTAS AMAL","GIMENEZ DIEGO JOSE",
-  "GIMENEZ FERNANDO EMILIO","GOMEZ VICTOR","GONZALEZ CARLOS","GONZALEZ LUIS","GONZALEZ RICARDO DANIEL",
-  "GONZALEZ ROQUE CRISTIAN","GUILLEN EMANUEL","HECTOR VIDELA","HIDALGO NICOLAS MAXIMILIANO",
-  "LEYES ERNESTO ANTONIO","LLANTEN MARCELO","LOMORO LUIS MIGUEL","LOPEZ MAXIMILIANO",
-  "LOPEZ OSVALDO RAMON","LUCIANO PARRAVICCINI","LUIS EMANUEL GOMEZ","MACARENA CAROSELLA",
-  "MACARENA GONZALEZ","MARCOS CASTRO","MARIANO DE PEDRO","MARTIN GUARDIA","MATIAS EXEQUIEL IBARRA",
-  "MAURO JAVIER PEREZ","MEDINA CESAR IVAN","MERCADO MARTIN","MIGLIERINA HORACIO JESUS",
-  "MIRANDA JONATHAN DAMIAN","MOLINA DIEGO FABIAN","MUNOZ FABIO EMANUEL","MUNOZ JUAN MANUEL",
-  "NEIRA FRANCISCO","OSORIO ENRIQUE ABEL","PEIRO MARCELO","PELLONI GABRIEL","PELLONI ITALO",
-  "PEREGRIN FACUNDO","PEREYRA OSCAR DARIO","PEREZ ALEJANDRO SEBASTIAN","PEREZ CLAUDIO DAVID",
-  "PONCE ALEJANDRO JOSE","PRIETO CLAUDIO","RIVERA LUIS ALEJANDRO","ROBLEDO MATIAS","RODRIGO DAVIS ROZAS",
-  "ROLDAN ROBERTO MARIO","ROLDAN ROBERTO MATIAS","ROSALES JONATHAN","RUBIO RODRIGO","RUIZ MATIAS",
-  "RUSSO DIEGO PL","SCATAMBURLO DIEGO DAVID","SCATAMBURLO LUIS ANGEL","SEBASTIAN HORACIO GOMEZ",
-  "SOSA CARLOS GABRIEL","STORNINI MAXIMILIANO","SUAREZ LUCIANO DARIO","SUTTER ARNOLDO ALBERTO",
-  "TESTA JOSUE","TOSELLI CRISTIAN ADRIAN","TRIBINO MATIAS GUSTAVO","VERA ANGEL JESUS","VERA MATIAS",
-  "VIDELA CEFERINO GUILLERMO","VIDELA JORGE","VIDELA MATIAS"
-];
+var SUPERVISORES_NAP = ["Cristian Toselli","Jose Morales"];
 
 var ST = { nombre:'', dni:'', pass:'', casos:[], naps:[], filtro:'', napSeleccionada:null, map:null, napMarkers:null, refreshTimer:null };
 
@@ -198,7 +172,7 @@ function toast(msg){
   clearTimeout(t._h); t._h=setTimeout(function(){t.style.display='none';},2600);
 }
 
-document.getElementById('f-tecnico').innerHTML='<option value="">Elegí un técnico...</option>'+TECNICOS.map(function(n){return '<option>'+n+'</option>';}).join('');
+document.getElementById('f-tecnico').innerHTML='<option value="">Elegí un supervisor...</option>'+SUPERVISORES_NAP.map(function(n){return '<option>'+n+'</option>';}).join('');
 
 // ── Login ──
 (function initLogin(){
@@ -285,6 +259,49 @@ function seleccionarNap(n){
   el.classList.add('show');
   el.innerHTML='NAP seleccionada: <b>'+(n.serie||n.id)+'</b> · '+(n.localidad||'')+' · '+(n.libres!==''&&n.libres!==undefined?n.libres+' libres':'sin datos de disponibilidad');
 }
+
+// ── Autocompletar dirección + ubicación al escribir el número de cliente ──
+// Busca en la hoja CLIENTES (la alimenta el Tampermonkey cada vez que
+// oficina técnica carga órdenes en SIGA). Si el cliente no está todavía
+// en esa hoja (por ejemplo, nunca se cargó una orden suya), no completa
+// nada y hay que llenar dirección a mano como antes.
+var clienteMarker=null;
+function buscarClientePorNro(nro){
+  if(!nro) return;
+  var buscando=document.getElementById('f-cli-buscando');
+  buscando.style.display='block';
+  fetch(API_URL+'?pass='+encodeURIComponent(ST.pass)+'&accion=cliente&nro='+encodeURIComponent(nro))
+    .then(function(r){return r.json();})
+    .then(function(d){
+      buscando.style.display='none';
+      if(!d.ok){ return; } // no encontrado -- se completa a mano, sin avisar con error
+      var c=d.cliente;
+      if(c.nombre) document.getElementById('f-cli-nombre').value=c.nombre;
+      if(c.direccion) document.getElementById('f-direccion').value=c.direccion;
+      if(c.lat && c.lng && ST.map){
+        if(clienteMarker) ST.map.removeLayer(clienteMarker);
+        var icon=L.divIcon({html:'<div style="width:22px;height:22px;border-radius:50%;background:#f7ec4f;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.6)"></div>',className:'',iconSize:[22,22],iconAnchor:[11,11]});
+        clienteMarker=L.marker([c.lat,c.lng],{icon:icon,zIndexOffset:3000}).addTo(ST.map);
+        clienteMarker.bindTooltip('📍 Cliente '+c.nro);
+        ST.map.setView([c.lat,c.lng],17);
+      }
+      toast('Cliente encontrado — dirección y mapa completados');
+    }).catch(function(){ buscando.style.display='none'; });
+}
+document.getElementById('f-cli-nro').addEventListener('blur', function(){ buscarClientePorNro(this.value.trim()); });
+document.getElementById('f-cli-nro').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); buscarClientePorNro(this.value.trim()); } });
+
+document.getElementById('nap-fs-btn').addEventListener('click', function(){
+  var mapDiv=document.getElementById('nap-map');
+  if(!document.fullscreenElement){
+    (mapDiv.requestFullscreen||mapDiv.webkitRequestFullscreen||function(){}).call(mapDiv);
+  } else {
+    (document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document);
+  }
+});
+document.addEventListener('fullscreenchange', function(){
+  if(ST.map) setTimeout(function(){ ST.map.invalidateSize(); },150);
+});
 
 // ── Crear caso ──
 document.getElementById('crear-btn').addEventListener('click', function(){
