@@ -35,6 +35,14 @@
     border-radius:7px;padding:7px 10px;font-size:13px;outline:none
   }
   #searchCard input:focus{border-color:var(--blue)}
+  #addrCard{padding:8px 10px;display:flex;align-items:center;gap:8px;flex:1;min-width:200px;max-width:300px}
+  #addrCard input{
+    flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    border-radius:7px;padding:7px 10px;font-size:13px;outline:none
+  }
+  #addrCard input:focus{border-color:var(--blue)}
+  #addrBtn{background:transparent;border:none;cursor:pointer;font-size:15px;padding:2px 4px}
+  #addrBtn:hover{filter:brightness(1.3)}
   #searchCount{font-size:11px;color:var(--muted);white-space:nowrap}
 
   #statusCard{padding:8px 12px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px}
@@ -96,6 +104,17 @@
   .qStat{display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;font-size:12.5px}
   .qStat b{font-size:14px}
   .qStat span{color:var(--muted);font-size:10.5px;text-align:right;margin-left:10px}
+
+  #addrPanel{
+    position:absolute;top:64px;right:12px;z-index:1001;padding:12px 14px;width:280px;display:none;
+  }
+  #addrPanel h4{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600;margin:0}
+  .addrItem{padding:7px 0;border-bottom:1px solid var(--line);font-size:12px;cursor:pointer}
+  .addrItem:hover{color:var(--blue)}
+  .addrItem:last-child{border-bottom:none}
+  .addrItem b{display:block;font-size:12.5px}
+  .addrItem span{color:var(--muted);font-size:10.5px}
+  .addrItem .dist{color:var(--green);font-weight:700}
 
   /* ── Pantalla de acceso ── */
   #gate{
@@ -172,6 +191,10 @@
     <input id="searchInput" type="text" placeholder="Filtrar por placa o serie..." autocomplete="off"/>
     <span id="searchCount"></span>
   </div>
+  <div class="card" id="addrCard">
+    <input id="addrInput" type="text" placeholder="Buscar dirección..." autocomplete="off"/>
+    <button id="addrBtn" title="Buscar dirección">📍</button>
+  </div>
   <div class="card" id="statusCard">
     <span id="statusDot"></span>
     <span id="statusTxt">actualizado hace un momento</span>
@@ -192,6 +215,14 @@
   <div class="qStat"><b id="qLibres">—</b><span>Puertos libres</span></div>
   <div class="qStat"><b id="qPct">—</b><span>% ocupación</span></div>
   <div id="quadNote" style="font-size:10.5px;color:var(--muted);margin-top:6px"></div>
+</div>
+
+<div id="addrPanel" class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+    <h4 style="margin:0" id="addrPanelTitle">NAPs cerca de esa dirección</h4>
+    <span id="addrClose" style="cursor:pointer;color:var(--muted);font-size:14px">✕</span>
+  </div>
+  <div id="addrList" style="overflow-y:auto;max-height:45vh"></div>
 </div>
 
 <div id="statsBar" class="card">
@@ -275,6 +306,8 @@ var drawnItems = new L.FeatureGroup();
 map.addLayer(drawnItems);
 var drawHandler = null;
 var drawActive = false;
+var addrMarker = null;
+var addrCircle = null;
 
 /* ════════════════════════════════════════════════════════════════
    ESTADO
@@ -607,6 +640,7 @@ function calcularCuadrante(bounds){
 function activarDibujo(){
   if(drawActive) return;
   drawActive = true;
+  document.getElementById('addrPanel').style.display='none';
   document.getElementById('drawBtn').classList.add('active');
   document.getElementById('drawBtn').textContent = '✕ Cancelar';
   drawHandler = new L.Draw.Rectangle(map, {shapeOptions:{color:'#4f8ef7',weight:2,fillOpacity:.08}});
@@ -634,6 +668,101 @@ map.on(L.Draw.Event.CREATED, function(e){
 document.getElementById('quadClose').addEventListener('click', function(){
   document.getElementById('quadPanel').style.display='none';
   drawnItems.clearLayers();
+});
+
+/* ════════════════════════════════════════════════════════════════
+   BUSCADOR DE DIRECCIÓN: geocodifica con Nominatim (OpenStreetMap) y
+   lista las NAPs más cercanas ordenadas por distancia.
+   ════════════════════════════════════════════════════════════════ */
+
+var RADIO_BUSQUEDA_KM = 0.6; // 600m -- lista NAPs dentro de este radio
+
+function distanciaKm(lat1,lng1,lat2,lng2){
+  var R=6371;
+  var dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)
+    +Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function buscarDireccion(){
+  var q = document.getElementById('addrInput').value.trim();
+  if(!q) return;
+  var btn=document.getElementById('addrBtn');
+  btn.textContent='⏳';
+  // Sesgo hacia San Rafael, Mendoza para que resultados ambiguos prioricen la zona
+  var url='https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ar'
+    +'&viewbox=-68.45,-34.55,-68.20,-34.70&bounded=0&q='+encodeURIComponent(q+', San Rafael, Mendoza, Argentina');
+  fetch(url,{headers:{'Accept':'application/json'}})
+    .then(function(r){return r.json();})
+    .then(function(results){
+      btn.textContent='📍';
+      if(!results||!results.length){
+        alert('No encontré esa dirección. Probá con más detalle (ej: "San Martín 450").');
+        return;
+      }
+      var lat=parseFloat(results[0].lat), lng=parseFloat(results[0].lon);
+      mostrarDireccionEncontrada(lat,lng,results[0].display_name);
+    })
+    .catch(function(e){
+      btn.textContent='📍';
+      alert('No se pudo buscar la dirección. Probá de nuevo.');
+    });
+}
+
+function mostrarDireccionEncontrada(lat,lng,nombre){
+  // Cierra el panel de cuadrante si estaba abierto, para no superponerse
+  document.getElementById('quadPanel').style.display='none';
+  drawnItems.clearLayers();
+
+  if(addrMarker) map.removeLayer(addrMarker);
+  if(addrCircle) map.removeLayer(addrCircle);
+
+  addrMarker = L.marker([lat,lng],{icon:L.divIcon({
+    className:'',
+    html:'<div style="width:16px;height:16px;border-radius:50% 50% 50% 0;background:#f7a34f;border:2px solid #fff;transform:rotate(-45deg)"></div>',
+    iconSize:[16,16], iconAnchor:[8,16]
+  })}).addTo(map);
+  addrCircle = L.circle([lat,lng],{radius:RADIO_BUSQUEDA_KM*1000,color:'#f7a34f',weight:1,fillOpacity:.05}).addTo(map);
+  map.setView([lat,lng],16);
+
+  var cercanas=[];
+  ALL_NAPS.forEach(function(nap){
+    if(nap.lat===null||nap.lat===undefined||nap.lng===null||nap.lng===undefined) return;
+    var d=distanciaKm(lat,lng,nap.lat,nap.lng);
+    if(d<=RADIO_BUSQUEDA_KM) cercanas.push({nap:nap,dist:d});
+  });
+  cercanas.sort(function(a,b){return a.dist-b.dist;});
+
+  var box=document.getElementById('addrList');
+  box.innerHTML='';
+  if(!cercanas.length){
+    box.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0">Ninguna NAP cargada a menos de '+(RADIO_BUSQUEDA_KM*1000)+'m de ahí.</div>';
+  } else {
+    cercanas.forEach(function(c){
+      var item=document.createElement('div');
+      item.className='addrItem';
+      var distTxt = c.dist<1 ? Math.round(c.dist*1000)+'m' : c.dist.toFixed(2)+'km';
+      item.innerHTML='<b>'+escapeHtml(c.nap.serie||c.nap.id)+' <span class="dist">· '+distTxt+'</span></b>'
+        +'<span>'+escapeHtml(c.nap.localidad||'')+(c.nap.libres!==undefined&&c.nap.libres!==''&&c.nap.libres!==null?' · '+c.nap.libres+' libres':'')+'</span>';
+      item.addEventListener('click', function(){
+        map.setView([c.nap.lat,c.nap.lng],18);
+      });
+      box.appendChild(item);
+    });
+  }
+  document.getElementById('addrPanelTitle').textContent = 'NAPs cerca de "'+ (nombre.split(',')[0]) +'"';
+  document.getElementById('addrPanel').style.display='block';
+}
+
+document.getElementById('addrBtn').addEventListener('click', buscarDireccion);
+document.getElementById('addrInput').addEventListener('keydown', function(e){
+  if(e.key==='Enter') buscarDireccion();
+});
+document.getElementById('addrClose').addEventListener('click', function(){
+  document.getElementById('addrPanel').style.display='none';
+  if(addrMarker){ map.removeLayer(addrMarker); addrMarker=null; }
+  if(addrCircle){ map.removeLayer(addrCircle); addrCircle=null; }
 });
 
 // Arranque: si ya hay una sesión guardada en este dispositivo, entra directo
