@@ -65,7 +65,21 @@
   }
   #statsBar .stat b{font-size:15px;color:var(--ink);display:block;line-height:1.1}
   #statsBar .stat span{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px}
+  .statClick{cursor:pointer;border-radius:6px;padding:2px 6px;margin:-2px -6px}
+  .statClick:hover{background:var(--panel2)}
+  .statClick b{color:var(--orange)!important}
   .locFree{color:var(--muted);font-size:10.5px;margin-left:4px}
+
+  #sinCoordPanel{
+    position:absolute;top:118px;left:12px;z-index:1001;padding:12px 14px;width:300px;
+    max-height:55vh;display:flex;flex-direction:column;display:none;
+  }
+  #sinCoordList{overflow-y:auto}
+  .scItem{padding:7px 0;border-bottom:1px solid var(--line);font-size:12px;cursor:pointer}
+  .scItem:hover{color:var(--blue)}
+  .scItem:last-child{border-bottom:none}
+  .scItem b{display:block;font-size:12.5px}
+  .scItem span{color:var(--muted);font-size:10.5px}
 
   #drawCard{padding:0}
   #drawBtn{
@@ -185,6 +199,18 @@
   <div class="stat"><b id="statTotalPuertos">—</b><span>Puertos totales</span></div>
   <div class="stat"><b id="statTotalLibres">—</b><span>Libres</span></div>
   <div class="stat"><b id="statPctLibre">—</b><span>% libre</span></div>
+  <div class="stat statClick" id="statSinCoordBtn"><b id="statSinCoord">—</b><span>Sin coordenadas</span></div>
+</div>
+
+<div id="sinCoordPanel" class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+    <h4 style="margin:0">NAPs sin coordenadas</h4>
+    <span id="sinCoordClose" style="cursor:pointer;color:var(--muted);font-size:14px">✕</span>
+  </div>
+  <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
+    Estas NAPs no tienen lat/lng cargada en SIGA, así que no aparecen en el mapa.
+  </div>
+  <div id="sinCoordList"></div>
 </div>
 
 <div id="panel" class="card">
@@ -318,11 +344,15 @@ function buildLocalidadPanel(){
 function actualizarStats(){
   var totalNaps = ALL_NAPS.length;
   var totalPuertos = 0, totalLibres = 0, conDatosLibres = 0;
+  var sinCoord = [];
   ALL_NAPS.forEach(function(n){
     totalPuertos += (n.puertos||0);
     if(n.libres!==undefined && n.libres!=='' && n.libres!==null){
       totalLibres += Number(n.libres)||0;
       conDatosLibres++;
+    }
+    if(n.lat===null||n.lat===undefined||n.lng===null||n.lng===undefined){
+      sinCoord.push(n);
     }
   });
   document.getElementById('statTotalNaps').textContent = totalNaps;
@@ -330,7 +360,40 @@ function actualizarStats(){
   document.getElementById('statTotalLibres').textContent = conDatosLibres ? totalLibres : '—';
   document.getElementById('statPctLibre').textContent = (conDatosLibres && totalPuertos)
     ? Math.round(100*totalLibres/totalPuertos)+'%' : '—';
+  document.getElementById('statSinCoord').textContent = sinCoord.length;
+  SIN_COORD = sinCoord;
+  renderSinCoordList();
 }
+
+var SIN_COORD = [];
+
+function renderSinCoordList(){
+  var box = document.getElementById('sinCoordList');
+  box.innerHTML='';
+  if(!SIN_COORD.length){
+    box.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px 0">Ninguna, están todas ubicadas 🎉</div>';
+    return;
+  }
+  SIN_COORD.forEach(function(nap){
+    var item=document.createElement('div');
+    item.className='scItem';
+    item.innerHTML = '<b>'+escapeHtml(nap.serie||nap.id)+'</b>'
+      +'<span>'+escapeHtml(nap.localidad||'')+(nap.descripcion?' · '+escapeHtml(nap.descripcion):'')+'</span>';
+    item.addEventListener('click', function(){
+      var q = encodeURIComponent((nap.descripcion||nap.placa||nap.serie||'')+' '+(nap.localidad||'San Rafael, Mendoza'));
+      window.open('https://www.google.com/maps/search/?api=1&query='+q, '_blank');
+    });
+    box.appendChild(item);
+  });
+}
+
+document.getElementById('statSinCoordBtn').addEventListener('click', function(){
+  var p = document.getElementById('sinCoordPanel');
+  p.style.display = (p.style.display==='none'||!p.style.display) ? 'flex' : 'none';
+});
+document.getElementById('sinCoordClose').addEventListener('click', function(){
+  document.getElementById('sinCoordPanel').style.display='none';
+});
 
 function renderMarkers(){
   cluster.clearLayers();
