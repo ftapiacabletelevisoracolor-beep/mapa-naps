@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Panel de Casos — Oficina Técnica</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#111318;color:#e4e8f0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+  #login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .card{background:#1a1d23;border:1px solid #2e3340;border-radius:12px;padding:24px;width:100%;max-width:360px}
+  .card h1{font-size:18px;margin:0 0 4px}
+  .card p{font-size:12px;color:#7a8196;margin:0 0 18px}
+  label{font-size:11px;color:#7a8196;display:block;margin:12px 0 5px}
+  select,input,textarea{width:100%;background:#0d0f13;border:1px solid #2e3340;border-radius:8px;padding:10px 11px;color:#e4e8f0;font-size:14px;outline:none;font-family:inherit}
+  select:focus,input:focus,textarea:focus{border-color:#4f8ef7}
+  button{border:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer}
+  .btn-p{background:#4f8ef7;color:#fff}
+  .btn-p:disabled{opacity:.45}
+  .err{color:#e05252;font-size:12px;margin-top:10px;display:none}
+
+  header{background:#171a20;border-bottom:1px solid #2e3340;padding:12px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+  header h1{font-size:15px;margin:0}
+  header .who{font-size:12px;color:#7a8196}
+  header .who b{color:#4f8ef7}
+  header button{background:transparent;border:1px solid #2e3340;color:#7a8196;font-size:11px}
+
+  #layout{display:flex;gap:0;height:calc(100vh - 53px)}
+  #left{width:380px;flex-shrink:0;border-right:1px solid #2e3340;overflow-y:auto;padding:16px}
+  #right{flex:1;display:flex;flex-direction:column;min-width:0}
+
+  #left h2{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#7a8196;margin:0 0 10px}
+  #nap-search{margin-bottom:8px}
+  #nap-map{height:220px;border-radius:8px;margin-bottom:10px;border:1px solid #2e3340}
+  #nap-sel{font-size:12px;background:#0d0f13;border:1px solid #2e3340;border-radius:8px;padding:8px 10px;margin-bottom:10px;display:none}
+  #nap-sel.show{display:block}
+  #nap-sel b{color:#4f8ef7}
+  .field-row{display:flex;gap:8px}
+  .field-row > div{flex:1}
+  #crear-btn{width:100%;margin-top:14px}
+  #crear-msg{font-size:12px;margin-top:8px;display:none}
+
+  #right-hdr{padding:12px 18px;border-bottom:1px solid #2e3340;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+  #filters{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{font-size:11px;padding:5px 11px;border-radius:20px;background:#1a1d23;border:1px solid #2e3340;color:#7a8196;cursor:pointer}
+  .chip.on{background:rgba(79,142,247,.15);border-color:#4f8ef7;color:#4f8ef7;font-weight:700}
+  #upd{font-size:11px;color:#7a8196;display:flex;align-items:center;gap:6px}
+  #upd button{background:#1a1d23;border:1px solid #2e3340;color:#7a8196;padding:4px 8px}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  thead th{text-align:left;padding:9px 14px;color:#7a8196;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #2e3340;position:sticky;top:0;background:#111318}
+  tbody td{padding:9px 14px;border-bottom:1px solid #1e2128;vertical-align:top}
+  tbody tr:hover{background:#171a20;cursor:pointer}
+  .badge{font-size:9px;font-weight:800;padding:3px 8px;border-radius:20px;white-space:nowrap}
+  .b-Pendiente{background:rgba(250,130,49,.18);color:#fa8231}
+  .b-Verificado{background:rgba(79,207,138,.18);color:#4fcf8a}
+  .b-Ampliada{background:rgba(79,142,247,.18);color:#4f8ef7}
+  .b-Resuelto{background:rgba(122,129,150,.18);color:#7a8196}
+  .b-Cancelado{background:rgba(224,82,82,.18);color:#e05252}
+  #tbl-wrap{flex:1;overflow-y:auto}
+  .empty{padding:40px;text-align:center;color:#555;font-size:13px}
+
+  #detail-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+  #detail-bg.show{display:flex}
+  #detail{background:#171a20;border-radius:14px;width:100%;max-width:420px;padding:20px;max-height:85vh;overflow-y:auto}
+  #detail h2{font-size:16px;margin:0 0 2px}
+  #detail .sub{font-size:12px;color:#7a8196;margin-bottom:12px}
+  .actions{display:flex;gap:8px;margin-top:14px}
+  .actions button{flex:1}
+  .btn-res{background:#4fcf8a;color:#111}
+  .btn-can{background:#e05252;color:#fff}
+  .btn-cerrar{background:#2e3340;color:#e4e8f0;width:100%;margin-top:8px}
+  .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#22262f;border:1px solid #4fcf8a;color:#4fcf8a;border-radius:10px;padding:11px 18px;font-size:13px;z-index:200;display:none}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="card">
+    <h1>📋 Panel de Casos NAP</h1>
+    <p>Oficina técnica — clientes sin conexión</p>
+    <label>Supervisor</label>
+    <select id="li-nombre">
+      <option value="Fabricio Tapia">Fabricio Tapia</option>
+      <option value="Hector Collado">Hector Collado</option>
+      <option value="Cesar Barrera">Cesar Barrera</option>
+      <option value="Nicolas Buffa">Nicolas Buffa</option>
+      <option value="Gustavo Fernandez">Gustavo Fernandez</option>
+      <option value="Bebo Toselli">Bebo Toselli</option>
+      <option value="Jose Morales">Jose Morales</option>
+    </select>
+    <label>DNI</label>
+    <input type="text" id="li-dni" inputmode="numeric"/>
+    <label>Clave</label>
+    <input type="password" id="li-pass"/>
+    <button class="btn-p" id="li-btn" style="width:100%;margin-top:16px">Entrar</button>
+    <div class="err" id="li-err"></div>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <h1>📋 Panel de Casos — Oficina Técnica</h1>
+    <div class="who">👤 <b id="hd-nombre"></b> &nbsp; <button id="hd-salir">Salir</button></div>
+  </header>
+  <div id="layout">
+    <div id="left">
+      <h2>Nuevo caso</h2>
+      <label>Nro. cliente</label>
+      <input type="text" id="f-cli-nro" inputmode="numeric"/>
+      <label>Nombre del cliente</label>
+      <input type="text" id="f-cli-nombre"/>
+      <label>Dirección</label>
+      <input type="text" id="f-direccion"/>
+      <label>Técnico asignado</label>
+      <select id="f-tecnico"><option value="">Elegí un técnico...</option></select>
+
+      <h2 style="margin-top:18px">NAP asociada</h2>
+      <input type="text" id="nap-search" placeholder="Buscar NAP por placa o serie..."/>
+      <div id="nap-map"></div>
+      <div id="nap-sel"></div>
+
+      <button class="btn-p" id="crear-btn">+ Crear caso</button>
+      <div class="err" id="crear-msg"></div>
+    </div>
+    <div id="right">
+      <div id="right-hdr">
+        <div id="filters">
+          <div class="chip on" data-f="">Todos</div>
+          <div class="chip" data-f="Pendiente">Pendiente</div>
+          <div class="chip" data-f="Verificado">Verificado</div>
+          <div class="chip" data-f="Ampliada">Ampliada</div>
+          <div class="chip" data-f="Resuelto">Resuelto</div>
+        </div>
+        <div id="upd">actualizado — <button id="btn-refresh">↻</button></div>
+      </div>
+      <div id="tbl-wrap">
+        <table>
+          <thead><tr><th>Estado</th><th>Cliente</th><th>Dirección</th><th>NAP</th><th>Técnico</th><th>Obs. técnico</th><th>Creado</th></tr></thead>
+          <tbody id="tbl-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="detail-bg"><div id="detail"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// CONFIGURACION: pegá acá la misma URL /exec que ya usás para
+// NAPS_SHEET_URL (es el mismo Apps Script, ya tiene el manejo
+// de casos agregado).
+// ══════════════════════════════════════════════════════════
+var API_URL = 'https://script.google.com/macros/s/AKfycbzmPcVWVMKedmPno_St6lNQqt6iX7ipIO-hTQyO7vXqIHuYLyvF8WMn_9YfhYRuK6EG/exec';
+
+var TECNICOS = [
+  "AGUILERA SANTIAGO","ALANES RAMON FRANCISCO","ALLAIME JORGE","ARABIA ELIAS","ARABIA LUCAS ABEL",
+  "ARZA BRIAN ALBANO","AVARSUA GABRIEL","BAGNATO LUCIANO JOSE","BARCHOVSKI JUAN RICARDO",
+  "BARZOLA JOSE IGNACIO","BARZOLA ROBERTO MARIO","BLOISSY MAURICIO","BOGGIA CARLOS EMANUEL",
+  "BOTTERO NICOLAS","BRIAN MARTINEZ","BUENO MARCELO ADRIAN","BUSTAMANTE RODRIGO","BUSTOS ANDRES",
+  "CALZADA ADRIAN ALEJANDRO","CAROLINA MARTINEZ","CASADO MAURO DANIEL","CASATTI ANGEL DARIO",
+  "CASATTI JOSE ALBERTO","CASATTI RICARDO ERNESTO","CASTALETA ALEXIS IVAN","CERDA HECTOR MAURICIO",
+  "CERNA RAMON ALBERTO","CERVILLA DANILO","CHIAPA ALEJANDRO","CICHOCKI ALEX","COPPARI MARCO",
+  "CRESPILLO DANIEL","DAGATA DAVID","DE MARCHI NOE ADRIAN","DE NONI AYRTON JOEL","DIAZ CARLOS ALBERTO",
+  "DOS SANTOS DAYAN","DOTTORI CRISTIAN","DUARTE ABDUL","EDUARDO GRAU","EMILIANO BARZOLA",
+  "ESCOBAR LUCIANO RENE JESUS","ESPOSITO FERNANDO","FAVARI JORGE","FERNANDEZ DAVID",
+  "FIOCHETTI DENIS AGUSTIN","FRANCO DENIS ARIEL","GALDAME ALCIDES FABIAN","GARAY AGUSTIN",
+  "GARCIA CLAUDIO FERNANDO","GARCIA FRANCISCO ARIEL","GATTAS AMAL","GIMENEZ DIEGO JOSE",
+  "GIMENEZ FERNANDO EMILIO","GOMEZ VICTOR","GONZALEZ CARLOS","GONZALEZ LUIS","GONZALEZ RICARDO DANIEL",
+  "GONZALEZ ROQUE CRISTIAN","GUILLEN EMANUEL","HECTOR VIDELA","HIDALGO NICOLAS MAXIMILIANO",
+  "LEYES ERNESTO ANTONIO","LLANTEN MARCELO","LOMORO LUIS MIGUEL","LOPEZ MAXIMILIANO",
+  "LOPEZ OSVALDO RAMON","LUCIANO PARRAVICCINI","LUIS EMANUEL GOMEZ","MACARENA CAROSELLA",
+  "MACARENA GONZALEZ","MARCOS CASTRO","MARIANO DE PEDRO","MARTIN GUARDIA","MATIAS EXEQUIEL IBARRA",
+  "MAURO JAVIER PEREZ","MEDINA CESAR IVAN","MERCADO MARTIN","MIGLIERINA HORACIO JESUS",
+  "MIRANDA JONATHAN DAMIAN","MOLINA DIEGO FABIAN","MUNOZ FABIO EMANUEL","MUNOZ JUAN MANUEL",
+  "NEIRA FRANCISCO","OSORIO ENRIQUE ABEL","PEIRO MARCELO","PELLONI GABRIEL","PELLONI ITALO",
+  "PEREGRIN FACUNDO","PEREYRA OSCAR DARIO","PEREZ ALEJANDRO SEBASTIAN","PEREZ CLAUDIO DAVID",
+  "PONCE ALEJANDRO JOSE","PRIETO CLAUDIO","RIVERA LUIS ALEJANDRO","ROBLEDO MATIAS","RODRIGO DAVIS ROZAS",
+  "ROLDAN ROBERTO MARIO","ROLDAN ROBERTO MATIAS","ROSALES JONATHAN","RUBIO RODRIGO","RUIZ MATIAS",
+  "RUSSO DIEGO PL","SCATAMBURLO DIEGO DAVID","SCATAMBURLO LUIS ANGEL","SEBASTIAN HORACIO GOMEZ",
+  "SOSA CARLOS GABRIEL","STORNINI MAXIMILIANO","SUAREZ LUCIANO DARIO","SUTTER ARNOLDO ALBERTO",
+  "TESTA JOSUE","TOSELLI CRISTIAN ADRIAN","TRIBINO MATIAS GUSTAVO","VERA ANGEL JESUS","VERA MATIAS",
+  "VIDELA CEFERINO GUILLERMO","VIDELA JORGE","VIDELA MATIAS"
+];
+
+var ST = { nombre:'', dni:'', pass:'', casos:[], naps:[], filtro:'', napSeleccionada:null, map:null, napMarkers:null, refreshTimer:null };
+
+function toast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.style.display='block';
+  clearTimeout(t._h); t._h=setTimeout(function(){t.style.display='none';},2600);
+}
+
+document.getElementById('f-tecnico').innerHTML='<option value="">Elegí un técnico...</option>'+TECNICOS.map(function(n){return '<option>'+n+'</option>';}).join('');
+
+// ── Login ──
+(function initLogin(){
+  var guardado=null;
+  try{guardado=JSON.parse(localStorage.getItem('panelCasosLogin')||'null');}catch(e){}
+  if(guardado&&guardado.nombre&&guardado.dni&&guardado.pass){
+    ST.nombre=guardado.nombre; ST.dni=guardado.dni; ST.pass=guardado.pass;
+    entrarApp();
+  }
+})();
+
+function entrarApp(){
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('hd-nombre').textContent=ST.nombre;
+  initMapaNaps();
+  cargarCasos();
+  ST.refreshTimer=setInterval(cargarCasos, 30000);
+}
+
+document.getElementById('li-btn').addEventListener('click', function(){
+  var nombre=document.getElementById('li-nombre').value;
+  var dni=document.getElementById('li-dni').value.trim();
+  var pass=document.getElementById('li-pass').value;
+  var err=document.getElementById('li-err');
+  err.style.display='none';
+  if(!dni||!pass){ err.textContent='Completá DNI y clave.'; err.style.display='block'; return; }
+  var btn=document.getElementById('li-btn'); btn.disabled=true; btn.textContent='Entrando...';
+  fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({tipo:'login', nombre:nombre, dni:dni, pass:pass})})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d.ok){
+      ST.nombre=nombre; ST.dni=dni; ST.pass=pass;
+      localStorage.setItem('panelCasosLogin', JSON.stringify({nombre:nombre,dni:dni,pass:pass}));
+      entrarApp();
+    } else {
+      err.textContent=d.error||'No se pudo entrar.'; err.style.display='block';
+    }
+  }).catch(function(e){ err.textContent='Error de conexión: '+e.message; err.style.display='block'; })
+  .finally(function(){ btn.disabled=false; btn.textContent='Entrar'; });
+});
+document.getElementById('hd-salir').addEventListener('click', function(){
+  localStorage.removeItem('panelCasosLogin');
+  location.reload();
+});
+
+// ── Mapa de NAPs para elegir cuál asociar al caso ──
+function initMapaNaps(){
+  ST.map=L.map('nap-map').setView([-34.617,-68.335],12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'OSM'}).addTo(ST.map);
+  ST.napMarkers=(typeof L.markerClusterGroup==='function')?L.markerClusterGroup():L.layerGroup();
+  ST.napMarkers.addTo(ST.map);
+
+  fetch(API_URL+'?pass='+encodeURIComponent(ST.pass))
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(!d.ok){ toast('No se pudieron cargar las NAPs'); return; }
+      ST.naps=(d.naps||[]).filter(function(n){return n.lat&&n.lng;});
+      renderNapMarkers(ST.naps);
+    }).catch(function(e){ toast('Sin conexión al cargar NAPs: '+e.message); });
+}
+function renderNapMarkers(naps){
+  ST.napMarkers.clearLayers();
+  naps.forEach(function(n){
+    var m=L.circleMarker([n.lat,n.lng],{radius:6,color:'#fff',weight:1,fillColor:'#4f8ef7',fillOpacity:.9});
+    m.bindTooltip((n.serie||n.id)+' · '+(n.localidad||''));
+    m.on('click', function(){ seleccionarNap(n); });
+    m.addTo(ST.napMarkers);
+  });
+}
+document.getElementById('nap-search').addEventListener('input', function(){
+  var q=this.value.trim().toUpperCase();
+  if(!q){ renderNapMarkers(ST.naps); return; }
+  var hits=ST.naps.filter(function(n){
+    return (String(n.placa||'').toUpperCase().indexOf(q)>=0) || (String(n.serie||'').toUpperCase().indexOf(q)>=0);
+  });
+  renderNapMarkers(hits);
+  if(hits.length===1 && ST.map){ ST.map.setView([hits[0].lat,hits[0].lng],17); }
+});
+function seleccionarNap(n){
+  ST.napSeleccionada=n;
+  var el=document.getElementById('nap-sel');
+  el.classList.add('show');
+  el.innerHTML='NAP seleccionada: <b>'+(n.serie||n.id)+'</b> · '+(n.localidad||'')+' · '+(n.libres!==''&&n.libres!==undefined?n.libres+' libres':'sin datos de disponibilidad');
+}
+
+// ── Crear caso ──
+document.getElementById('crear-btn').addEventListener('click', function(){
+  var cliNro=document.getElementById('f-cli-nro').value.trim();
+  var cliNom=document.getElementById('f-cli-nombre').value.trim();
+  var dir=document.getElementById('f-direccion').value.trim();
+  var tec=document.getElementById('f-tecnico').value;
+  var msg=document.getElementById('crear-msg');
+  msg.style.display='none';
+  if(!cliNro||!dir||!tec){ msg.style.color='#e05252'; msg.textContent='Completá cliente, dirección y técnico.'; msg.style.display='block'; return; }
+  var n=ST.napSeleccionada;
+  var btn=document.getElementById('crear-btn'); btn.disabled=true;
+  fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({
+      tipo:'crear_caso', pass:ST.pass,
+      cliente_nro:cliNro, cliente_nombre:cliNom, direccion:dir,
+      nap_id: n?n.id:'', nap_serie: n?n.serie:'', nap_localidad: n?n.localidad:'',
+      lat: n?n.lat:'', lng: n?n.lng:'',
+      tecnico:tec, creado_por:ST.nombre
+    })})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d.ok){
+      msg.style.color='#4fcf8a'; msg.textContent='✓ Caso creado y asignado a '+tec; msg.style.display='block';
+      document.getElementById('f-cli-nro').value='';
+      document.getElementById('f-cli-nombre').value='';
+      document.getElementById('f-direccion').value='';
+      document.getElementById('f-tecnico').value='';
+      document.getElementById('nap-sel').classList.remove('show');
+      ST.napSeleccionada=null;
+      cargarCasos();
+    } else {
+      msg.style.color='#e05252'; msg.textContent='Error: '+d.error; msg.style.display='block';
+    }
+  }).catch(function(e){ msg.style.color='#e05252'; msg.textContent='Sin conexión: '+e.message; msg.style.display='block'; })
+  .finally(function(){ btn.disabled=false; });
+});
+
+// ── Filtros de la tabla ──
+document.querySelectorAll('.chip').forEach(function(c){
+  c.addEventListener('click', function(){
+    document.querySelectorAll('.chip').forEach(function(x){x.classList.remove('on');});
+    c.classList.add('on'); ST.filtro=c.dataset.f;
+    renderTabla();
+  });
+});
+document.getElementById('btn-refresh').addEventListener('click', cargarCasos);
+
+// ── Cargar y mostrar todos los casos ──
+function cargarCasos(){
+  fetch(API_URL+'?pass='+encodeURIComponent(ST.pass)+'&accion=casos')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(!d.ok){ toast('Error: '+d.error); return; }
+      ST.casos=d.casos||[];
+      renderTabla();
+      var upd=document.getElementById('upd');
+      var hora=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+      upd.innerHTML='actualizado '+hora+' <button id="btn-refresh">↻</button>';
+      document.getElementById('btn-refresh').addEventListener('click', cargarCasos);
+    }).catch(function(e){ toast('Sin conexión: '+e.message); });
+}
+
+function renderTabla(){
+  var body=document.getElementById('tbl-body');
+  var casos=ST.casos.filter(function(c){ return !ST.filtro || c.estado===ST.filtro; });
+  if(!casos.length){ body.innerHTML='<tr><td colspan="7"><div class="empty">No hay casos para este filtro.</div></td></tr>'; return; }
+  body.innerHTML=casos.map(function(c){
+    var fecha=c.fecha_creacion?new Date(c.fecha_creacion).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+    return '<tr data-id="'+c.id+'">'
+      +'<td><span class="badge b-'+c.estado+'">'+c.estado+'</span></td>'
+      +'<td>'+(c.cliente_nro||'')+' — '+(c.cliente_nombre||'')+'</td>'
+      +'<td>'+(c.direccion||'')+'</td>'
+      +'<td>'+(c.nap_serie||c.nap_id||'—')+'</td>'
+      +'<td>'+(c.tecnico||'')+'</td>'
+      +'<td style="color:#a8b0c0">'+(c.obs_tecnico||'—')+'</td>'
+      +'<td style="color:#7a8196">'+fecha+'</td>'
+      +'</tr>';
+  }).join('');
+  body.querySelectorAll('tr').forEach(function(tr){
+    tr.addEventListener('click', function(){
+      var c=ST.casos.find(function(x){return String(x.id)===tr.dataset.id;});
+      if(c) abrirDetalle(c);
+    });
+  });
+}
+
+// ── Detalle: cerrar el caso (Resuelto) tras reprovisionar al cliente ──
+function abrirDetalle(c){
+  var bg=document.getElementById('detail-bg');
+  var d=document.getElementById('detail');
+  var puedeCerrar = c.estado==='Verificado'||c.estado==='Ampliada';
+  d.innerHTML='<h2>Cliente '+(c.cliente_nro||'')+' — '+(c.cliente_nombre||'')+'</h2>'
+    +'<div class="sub">'+(c.direccion||'')+' &middot; <span class="badge b-'+c.estado+'">'+c.estado+'</span></div>'
+    +'<div style="font-size:12px;color:#7a8196">Técnico: <b style="color:#e4e8f0">'+(c.tecnico||'')+'</b></div>'
+    +'<div style="font-size:12px;color:#7a8196;margin-top:4px">NAP: '+(c.nap_serie||c.nap_id||'—')+' · '+(c.nap_localidad||'')+'</div>'
+    +(c.obs_tecnico?'<div style="font-size:12px;color:#a8b0c0;margin-top:8px">📝 '+c.obs_tecnico+'</div>':'')
+    +(puedeCerrar?'<div class="actions"><button class="btn-res" id="det-resuelto">✓ Marcar Resuelto (ya reprovisionado)</button></div>':'')
+    +'<div class="actions"><button class="btn-can" id="det-cancelar">✕ Cancelar caso</button></div>'
+    +'<button class="btn-cerrar" id="det-cerrar">Cerrar</button>';
+  bg.classList.add('show');
+  document.getElementById('det-cerrar').addEventListener('click', function(){ bg.classList.remove('show'); });
+  if(puedeCerrar){
+    document.getElementById('det-resuelto').addEventListener('click', function(){ actualizarCaso(c,'Resuelto'); });
+  }
+  document.getElementById('det-cancelar').addEventListener('click', function(){ actualizarCaso(c,'Cancelado'); });
+}
+function actualizarCaso(c, estado){
+  fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({tipo:'actualizar_caso', pass:ST.pass, id:c.id, estado:estado, obs_tecnico:c.obs_tecnico||''})})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d.ok){ toast('✓ Caso marcado como '+estado); document.getElementById('detail-bg').classList.remove('show'); cargarCasos(); }
+    else { toast('Error: '+d.error); }
+  }).catch(function(e){ toast('Sin conexión: '+e.message); });
+}
+</script>
+</body>
+</html>

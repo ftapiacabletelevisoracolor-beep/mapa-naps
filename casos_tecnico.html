@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<title>Mis Casos — NAP</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:#111318;color:#e4e8f0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+  #login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .card{background:#1a1d23;border:1px solid #2e3340;border-radius:12px;padding:22px;width:100%;max-width:340px}
+  .card h1{font-size:18px;margin:0 0 4px}
+  .card p{font-size:12px;color:#7a8196;margin:0 0 18px}
+  label{font-size:11px;color:#7a8196;display:block;margin:12px 0 5px}
+  select,input{width:100%;background:#0d0f13;border:1px solid #2e3340;border-radius:8px;padding:11px 12px;color:#e4e8f0;font-size:15px;outline:none}
+  select:focus,input:focus{border-color:#4f8ef7}
+  button{border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer}
+  .btn-p{background:#4f8ef7;color:#fff;width:100%;margin-top:18px}
+  .btn-p:disabled{opacity:.45}
+  .err{color:#e05252;font-size:12px;margin-top:10px;display:none}
+
+  header{position:sticky;top:0;background:#171a20;border-bottom:1px solid #2e3340;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;z-index:10}
+  header .who{font-size:13px}
+  header .who b{color:#4f8ef7}
+  header button{background:transparent;border:1px solid #2e3340;color:#7a8196;font-size:11px;padding:6px 10px}
+
+  #tabs{display:flex;gap:6px;padding:10px 14px 0}
+  .tab{flex:1;text-align:center;padding:8px;border-radius:8px;font-size:12px;background:#1a1d23;border:1px solid #2e3340;color:#7a8196;cursor:pointer}
+  .tab.on{background:rgba(79,142,247,.15);border-color:#4f8ef7;color:#4f8ef7;font-weight:700}
+
+  #list{padding:12px 14px 90px;display:flex;flex-direction:column;gap:10px}
+  .caso{background:#1a1d23;border:1px solid #2e3340;border-radius:10px;padding:13px}
+  .caso .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  .caso .cli{font-size:14px;font-weight:700}
+  .caso .dir{font-size:12px;color:#a8b0c0;margin-top:2px}
+  .caso .nap{font-size:11px;color:#7a8196;margin-top:6px}
+  .badge{font-size:9px;font-weight:800;padding:3px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0}
+  .b-Pendiente{background:rgba(250,130,49,.18);color:#fa8231}
+  .b-Verificado{background:rgba(79,207,138,.18);color:#4fcf8a}
+  .b-Ampliada{background:rgba(79,142,247,.18);color:#4f8ef7}
+  .b-Resuelto{background:rgba(122,129,150,.18);color:#7a8196}
+  .b-Cancelado{background:rgba(224,82,82,.18);color:#e05252}
+  .empty{text-align:center;color:#555;font-size:13px;padding:40px 20px}
+
+  #detail-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:flex-end;z-index:100}
+  #detail-bg.show{display:flex}
+  #detail{background:#171a20;border-radius:16px 16px 0 0;width:100%;max-height:90vh;overflow-y:auto;padding:18px}
+  #detail h2{font-size:16px;margin:0 0 2px}
+  #detail .sub{font-size:12px;color:#7a8196;margin-bottom:12px}
+  #detail-map{height:180px;border-radius:10px;margin:10px 0;background:#0d0f13}
+  #detail textarea{width:100%;background:#0d0f13;border:1px solid #2e3340;border-radius:8px;padding:10px;color:#e4e8f0;font-size:13px;font-family:inherit;resize:vertical;min-height:60px;margin-top:10px}
+  .actions{display:flex;gap:8px;margin-top:14px}
+  .actions button{flex:1}
+  .btn-ver{background:#4fcf8a;color:#111}
+  .btn-amp{background:#4f8ef7;color:#fff}
+  .btn-cerrar{background:#2e3340;color:#e4e8f0;width:100%;margin-top:8px}
+  .toast{position:fixed;bottom:16px;left:14px;right:14px;background:#22262f;border:1px solid #4fcf8a;color:#4fcf8a;border-radius:10px;padding:12px 14px;font-size:13px;text-align:center;z-index:200;display:none}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="card">
+    <h1>🛠 Mis Casos NAP</h1>
+    <p>Casos de clientes sin conexión asignados a vos.</p>
+    <label>Tu nombre</label>
+    <select id="li-nombre"></select>
+    <label>Clave</label>
+    <input type="password" id="li-pass" placeholder="Clave del equipo"/>
+    <button class="btn-p" id="li-btn">Entrar</button>
+    <div class="err" id="li-err"></div>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <div class="who">👤 <b id="hd-nombre"></b></div>
+    <button id="hd-salir">Salir</button>
+  </header>
+  <div id="tabs">
+    <div class="tab on" data-f="activos">Activos</div>
+    <div class="tab" data-f="todos">Todos</div>
+  </div>
+  <div id="list"><div class="empty">Cargando...</div></div>
+</div>
+
+<div id="detail-bg">
+  <div id="detail"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// CONFIGURACION: pegá acá la misma URL /exec que ya usás para
+// NAPS_SHEET_URL (es el mismo Apps Script, ya tiene el manejo
+// de casos agregado).
+// ══════════════════════════════════════════════════════════
+var API_URL = 'https://script.google.com/macros/s/AKfycbzmPcVWVMKedmPno_St6lNQqt6iX7ipIO-hTQyO7vXqIHuYLyvF8WMn_9YfhYRuK6EG/exec';
+
+var TECNICOS = [
+  "AGUILERA SANTIAGO","ALANES RAMON FRANCISCO","ALLAIME JORGE","ARABIA ELIAS","ARABIA LUCAS ABEL",
+  "ARZA BRIAN ALBANO","AVARSUA GABRIEL","BAGNATO LUCIANO JOSE","BARCHOVSKI JUAN RICARDO",
+  "BARZOLA JOSE IGNACIO","BARZOLA ROBERTO MARIO","BLOISSY MAURICIO","BOGGIA CARLOS EMANUEL",
+  "BOTTERO NICOLAS","BRIAN MARTINEZ","BUENO MARCELO ADRIAN","BUSTAMANTE RODRIGO","BUSTOS ANDRES",
+  "CALZADA ADRIAN ALEJANDRO","CAROLINA MARTINEZ","CASADO MAURO DANIEL","CASATTI ANGEL DARIO",
+  "CASATTI JOSE ALBERTO","CASATTI RICARDO ERNESTO","CASTALETA ALEXIS IVAN","CERDA HECTOR MAURICIO",
+  "CERNA RAMON ALBERTO","CERVILLA DANILO","CHIAPA ALEJANDRO","CICHOCKI ALEX","COPPARI MARCO",
+  "CRESPILLO DANIEL","DAGATA DAVID","DE MARCHI NOE ADRIAN","DE NONI AYRTON JOEL","DIAZ CARLOS ALBERTO",
+  "DOS SANTOS DAYAN","DOTTORI CRISTIAN","DUARTE ABDUL","EDUARDO GRAU","EMILIANO BARZOLA",
+  "ESCOBAR LUCIANO RENE JESUS","ESPOSITO FERNANDO","FAVARI JORGE","FERNANDEZ DAVID",
+  "FIOCHETTI DENIS AGUSTIN","FRANCO DENIS ARIEL","GALDAME ALCIDES FABIAN","GARAY AGUSTIN",
+  "GARCIA CLAUDIO FERNANDO","GARCIA FRANCISCO ARIEL","GATTAS AMAL","GIMENEZ DIEGO JOSE",
+  "GIMENEZ FERNANDO EMILIO","GOMEZ VICTOR","GONZALEZ CARLOS","GONZALEZ LUIS","GONZALEZ RICARDO DANIEL",
+  "GONZALEZ ROQUE CRISTIAN","GUILLEN EMANUEL","HECTOR VIDELA","HIDALGO NICOLAS MAXIMILIANO",
+  "LEYES ERNESTO ANTONIO","LLANTEN MARCELO","LOMORO LUIS MIGUEL","LOPEZ MAXIMILIANO",
+  "LOPEZ OSVALDO RAMON","LUCIANO PARRAVICCINI","LUIS EMANUEL GOMEZ","MACARENA CAROSELLA",
+  "MACARENA GONZALEZ","MARCOS CASTRO","MARIANO DE PEDRO","MARTIN GUARDIA","MATIAS EXEQUIEL IBARRA",
+  "MAURO JAVIER PEREZ","MEDINA CESAR IVAN","MERCADO MARTIN","MIGLIERINA HORACIO JESUS",
+  "MIRANDA JONATHAN DAMIAN","MOLINA DIEGO FABIAN","MUNOZ FABIO EMANUEL","MUNOZ JUAN MANUEL",
+  "NEIRA FRANCISCO","OSORIO ENRIQUE ABEL","PEIRO MARCELO","PELLONI GABRIEL","PELLONI ITALO",
+  "PEREGRIN FACUNDO","PEREYRA OSCAR DARIO","PEREZ ALEJANDRO SEBASTIAN","PEREZ CLAUDIO DAVID",
+  "PONCE ALEJANDRO JOSE","PRIETO CLAUDIO","RIVERA LUIS ALEJANDRO","ROBLEDO MATIAS","RODRIGO DAVIS ROZAS",
+  "ROLDAN ROBERTO MARIO","ROLDAN ROBERTO MATIAS","ROSALES JONATHAN","RUBIO RODRIGO","RUIZ MATIAS",
+  "RUSSO DIEGO PL","SCATAMBURLO DIEGO DAVID","SCATAMBURLO LUIS ANGEL","SEBASTIAN HORACIO GOMEZ",
+  "SOSA CARLOS GABRIEL","STORNINI MAXIMILIANO","SUAREZ LUCIANO DARIO","SUTTER ARNOLDO ALBERTO",
+  "TESTA JOSUE","TOSELLI CRISTIAN ADRIAN","TRIBINO MATIAS GUSTAVO","VERA ANGEL JESUS","VERA MATIAS",
+  "VIDELA CEFERINO GUILLERMO","VIDELA JORGE","VIDELA MATIAS"
+];
+
+var ST = { nombre:'', pass:'', casos:[], filtro:'activos', detailMap:null };
+
+function toast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.style.display='block';
+  clearTimeout(t._h); t._h=setTimeout(function(){t.style.display='none';},2600);
+}
+
+// ── Login ──
+(function initLogin(){
+  var sel=document.getElementById('li-nombre');
+  sel.innerHTML='<option value="">Elegí tu nombre...</option>'+TECNICOS.map(function(n){return '<option>'+n+'</option>';}).join('');
+  var guardado=null;
+  try{guardado=JSON.parse(localStorage.getItem('casosNapLogin')||'null');}catch(e){}
+  if(guardado&&guardado.nombre&&guardado.pass){
+    ST.nombre=guardado.nombre; ST.pass=guardado.pass;
+    entrarApp();
+    return;
+  }
+})();
+
+document.getElementById('li-btn').addEventListener('click', function(){
+  var nombre=document.getElementById('li-nombre').value;
+  var pass=document.getElementById('li-pass').value;
+  var err=document.getElementById('li-err');
+  err.style.display='none';
+  if(!nombre||!pass){ err.textContent='Elegí tu nombre y escribí la clave.'; err.style.display='block'; return; }
+  var btn=document.getElementById('li-btn'); btn.disabled=true; btn.textContent='Entrando...';
+  fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({tipo:'login', nombre:nombre, pass:pass})})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d.ok){
+      ST.nombre=nombre; ST.pass=pass;
+      localStorage.setItem('casosNapLogin', JSON.stringify({nombre:nombre,pass:pass}));
+      entrarApp();
+    } else {
+      err.textContent=d.error||'No se pudo entrar.'; err.style.display='block';
+    }
+  }).catch(function(e){ err.textContent='Error de conexión: '+e.message; err.style.display='block'; })
+  .finally(function(){ btn.disabled=false; btn.textContent='Entrar'; });
+});
+
+function entrarApp(){
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('hd-nombre').textContent=ST.nombre;
+  cargarCasos();
+}
+document.getElementById('hd-salir').addEventListener('click', function(){
+  localStorage.removeItem('casosNapLogin');
+  location.reload();
+});
+
+// ── Tabs ──
+document.querySelectorAll('.tab').forEach(function(t){
+  t.addEventListener('click', function(){
+    document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('on');});
+    t.classList.add('on'); ST.filtro=t.dataset.f;
+    renderList();
+  });
+});
+
+// ── Cargar casos del técnico logueado ──
+function cargarCasos(){
+  var url=API_URL+'?pass='+encodeURIComponent(ST.pass)+'&accion=casos&tecnico='+encodeURIComponent(ST.nombre);
+  fetch(url).then(function(r){return r.json();}).then(function(d){
+    if(!d.ok){ toast('Error: '+d.error); return; }
+    ST.casos=d.casos||[];
+    renderList();
+  }).catch(function(e){ toast('Sin conexión: '+e.message); });
+}
+
+function estadoBadge(estado){ return '<span class="badge b-'+estado+'">'+estado+'</span>'; }
+
+function renderList(){
+  var el=document.getElementById('list');
+  var casos=ST.casos.filter(function(c){
+    if(ST.filtro==='activos') return c.estado==='Pendiente'||c.estado==='Verificado'||c.estado==='Ampliada';
+    return true;
+  });
+  if(!casos.length){ el.innerHTML='<div class="empty">No tenés casos '+(ST.filtro==='activos'?'activos':'')+' por ahora.</div>'; return; }
+  el.innerHTML=casos.map(function(c,i){
+    return '<div class="caso" data-i="'+ST.casos.indexOf(c)+'">'
+      +'<div class="top"><div><div class="cli">Cliente '+(c.cliente_nro||'')+' — '+(c.cliente_nombre||'')+'</div>'
+      +'<div class="dir">'+(c.direccion||'')+'</div></div>'+estadoBadge(c.estado)+'</div>'
+      +'<div class="nap">📡 NAP '+(c.nap_serie||c.nap_id||'—')+(c.nap_localidad?(' · '+c.nap_localidad):'')+'</div>'
+      +'</div>';
+  }).join('');
+  el.querySelectorAll('.caso').forEach(function(card){
+    card.addEventListener('click', function(){ abrirDetalle(ST.casos[parseInt(card.dataset.i)]); });
+  });
+}
+
+// ── Detalle + acciones ──
+function abrirDetalle(c){
+  var bg=document.getElementById('detail-bg');
+  var d=document.getElementById('detail');
+  var puedeActuar = c.estado==='Pendiente'||c.estado==='Verificado'||c.estado==='Ampliada';
+  d.innerHTML='<h2>Cliente '+(c.cliente_nro||'')+' — '+(c.cliente_nombre||'')+'</h2>'
+    +'<div class="sub">'+(c.direccion||'')+' &middot; '+estadoBadge(c.estado)+'</div>'
+    +(c.lat&&c.lng?'<div id="detail-map"></div>':'')
+    +'<div style="font-size:12px;color:#7a8196">NAP: <b style="color:#e4e8f0">'+(c.nap_serie||c.nap_id||'—')+'</b> · '+(c.nap_localidad||'')+'</div>'
+    +(c.obs_tecnico?'<div style="font-size:12px;color:#a8b0c0;margin-top:8px">📝 '+c.obs_tecnico+'</div>':'')
+    +(puedeActuar?('<label style="display:block;margin-top:12px">Observación (opcional)</label><textarea id="det-obs" placeholder="Ej: NAP saturada, se liberaron 4 puertos..."></textarea>'
+      +'<div class="actions"><button class="btn-ver" id="det-verificado">✓ Verificado</button><button class="btn-amp" id="det-ampliada">↑ Ampliada</button></div>'):'')
+    +'<button class="btn-cerrar" id="det-cerrar">Cerrar</button>';
+  bg.classList.add('show');
+  document.getElementById('det-cerrar').addEventListener('click', function(){ bg.classList.remove('show'); });
+
+  if(c.lat&&c.lng){
+    setTimeout(function(){
+      if(ST.detailMap){ ST.detailMap.remove(); ST.detailMap=null; }
+      ST.detailMap=L.map('detail-map',{zoomControl:false,attributionControl:false}).setView([c.lat,c.lng],16);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(ST.detailMap);
+      L.marker([c.lat,c.lng]).addTo(ST.detailMap);
+    },50);
+  }
+
+  if(puedeActuar){
+    document.getElementById('det-verificado').addEventListener('click', function(){ actualizarCaso(c,'Verificado'); });
+    document.getElementById('det-ampliada').addEventListener('click', function(){ actualizarCaso(c,'Ampliada'); });
+  }
+}
+
+function actualizarCaso(c, estado){
+  var obs=document.getElementById('det-obs');
+  var obsVal=obs?obs.value.trim():'';
+  fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({tipo:'actualizar_caso', pass:ST.pass, id:c.id, estado:estado, obs_tecnico:obsVal})})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(d.ok){
+      toast('✓ Caso marcado como '+estado);
+      document.getElementById('detail-bg').classList.remove('show');
+      cargarCasos();
+    } else { toast('Error: '+d.error); }
+  }).catch(function(e){ toast('Sin conexión: '+e.message); });
+}
+</script>
+</body>
+</html>
