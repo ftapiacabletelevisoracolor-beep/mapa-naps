@@ -322,7 +322,7 @@ function buscarClientePorNro(nro){
   var buscando=document.getElementById('f-cli-buscando');
   buscando.style.display='block';
   var controller=(typeof AbortController!=='undefined')?new AbortController():null;
-  var timeoutId=setTimeout(function(){ if(controller) controller.abort(); }, 8000);
+  var timeoutId=setTimeout(function(){ if(controller) controller.abort(); }, 12000);
   fetch(API_URL+'?pass='+encodeURIComponent(ST.pass)+'&accion=cliente&nro='+encodeURIComponent(nro), controller?{signal:controller.signal}:{})
     .then(function(r){return r.json();})
     .then(function(d){
