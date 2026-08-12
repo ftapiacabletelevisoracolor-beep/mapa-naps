@@ -113,7 +113,10 @@
     <div id="left">
       <h2>Nuevo caso</h2>
       <label>Nro. cliente</label>
-      <input type="text" id="f-cli-nro" inputmode="numeric"/>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="f-cli-nro" inputmode="numeric" style="flex:1"/>
+        <button type="button" id="f-cli-buscar-btn" title="Buscar cliente" style="background:#4f8ef7;color:#fff;padding:0 14px;font-size:14px">🔍</button>
+      </div>
       <div id="f-cli-buscando" style="font-size:11px;color:#7a8196;display:none;margin-top:4px">Buscando cliente...</div>
       <label>Nombre del cliente</label>
       <input type="text" id="f-cli-nombre"/>
@@ -348,6 +351,7 @@ function buscarClientePorNro(nro){
 }
 document.getElementById('f-cli-nro').addEventListener('blur', function(){ buscarClientePorNro(this.value.trim()); });
 document.getElementById('f-cli-nro').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); buscarClientePorNro(this.value.trim()); } });
+document.getElementById('f-cli-buscar-btn').addEventListener('click', function(){ buscarClientePorNro(document.getElementById('f-cli-nro').value.trim()); });
 
 document.getElementById('nap-fs-btn').addEventListener('click', function(){
   var mapDiv=document.getElementById('nap-map');
@@ -429,12 +433,22 @@ function cargarCasos(){
     }).catch(function(e){ toast('Sin conexión: '+e.message); });
 }
 
+function tiempoRelativo(ms){
+  if(!ms) return '';
+  var dias=Math.floor((Date.now()-ms)/86400000);
+  if(dias<=0) return 'hoy';
+  if(dias===1) return 'hace 1 día';
+  return 'hace '+dias+' días';
+}
+
 function renderTabla(){
   var body=document.getElementById('tbl-body');
   var casos=ST.casos.filter(function(c){ return !ST.filtro || c.estado===ST.filtro; });
   if(!casos.length){ body.innerHTML='<tr><td colspan="7"><div class="empty">No hay casos para este filtro.</div></td></tr>'; return; }
   body.innerHTML=casos.map(function(c){
     var fecha=c.fecha_creacion?new Date(c.fecha_creacion).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+    var relativo=tiempoRelativo(c.fecha_creacion);
+    var relColor=(c.estado!=='Resuelto'&&c.estado!=='Cancelado'&&c.fecha_creacion&&(Date.now()-c.fecha_creacion)>172800000)?'#fa8231':'#555';
     return '<tr data-id="'+c.id+'">'
       +'<td><span class="badge b-'+c.estado+'">'+c.estado+'</span></td>'
       +'<td>'+(c.cliente_nro||'')+' — '+(c.cliente_nombre||'')+'</td>'
@@ -443,7 +457,7 @@ function renderTabla(){
       +'<td>'+(c.tecnico||'')+'</td>'
       +'<td style="text-align:center">'+(c.imagen_url?'📷':'')+'</td>'
       +'<td style="color:#a8b0c0">'+(c.obs_tecnico||'—')+'</td>'
-      +'<td style="color:#7a8196">'+fecha+'</td>'
+      +'<td style="color:#7a8196">'+fecha+(relativo?'<br><span style="color:'+relColor+';font-size:10.5px;font-weight:'+(relColor==='#fa8231'?'700':'400')+'">'+relativo+'</span>':'')+'</td>'
       +'</tr>';
   }).join('');
   body.querySelectorAll('tr').forEach(function(tr){

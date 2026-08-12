@@ -175,6 +175,13 @@ function cargarCasos(){
 }
 
 function estadoBadge(estado){ return '<span class="badge b-'+estado+'">'+estado+'</span>'; }
+function tiempoRelativo(ms){
+  if(!ms) return '';
+  var dias=Math.floor((Date.now()-ms)/86400000);
+  if(dias<=0) return 'hoy';
+  if(dias===1) return 'hace 1 día';
+  return 'hace '+dias+' días';
+}
 
 function renderList(){
   var el=document.getElementById('list');
@@ -184,10 +191,13 @@ function renderList(){
   });
   if(!casos.length){ el.innerHTML='<div class="empty">No tenés casos '+(ST.filtro==='activos'?'activos':'')+' por ahora.</div>'; return; }
   el.innerHTML=casos.map(function(c,i){
+    var relativo=tiempoRelativo(c.fecha_creacion);
+    var vencido=c.estado==='Pendiente'&&c.fecha_creacion&&(Date.now()-c.fecha_creacion)>172800000;
     return '<div class="caso" data-i="'+ST.casos.indexOf(c)+'">'
       +'<div class="top"><div><div class="cli">Cliente '+(c.cliente_nro||'')+' — '+(c.cliente_nombre||'')+'</div>'
       +'<div class="dir">'+(c.direccion||'')+'</div></div>'+estadoBadge(c.estado)+'</div>'
       +'<div class="nap">📡 NAP '+(c.nap_serie||c.nap_id||'—')+(c.nap_localidad?(' · '+c.nap_localidad):'')+'</div>'
+      +(relativo?'<div style="font-size:10.5px;color:'+(vencido?'#fa8231':'#7a8196')+';font-weight:'+(vencido?'700':'400')+';margin-top:4px">🕐 Creado '+relativo+'</div>':'')
       +'</div>';
   }).join('');
   el.querySelectorAll('.caso').forEach(function(card){
