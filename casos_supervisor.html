@@ -204,6 +204,8 @@ function abrirDetalle(c){
     +'<div class="sub">'+(c.direccion||'')+' &middot; '+estadoBadge(c.estado)+'</div>'
     +(c.lat&&c.lng?'<div id="detail-map"></div>':'')
     +'<div style="font-size:12px;color:#7a8196">NAP: <b style="color:#e4e8f0">'+(c.nap_serie||c.nap_id||'—')+'</b> · '+(c.nap_localidad||'')+'</div>'
+    +(c.observaciones?'<div style="font-size:12px;color:#a8b0c0;margin-top:8px">📝 <b>Al crear:</b> '+c.observaciones+'</div>':'')
+    +(c.imagen_url?'<a href="'+c.imagen_url+'" target="_blank"><img src="'+c.imagen_url+'" style="max-width:100%;border-radius:8px;margin-top:8px;border:1px solid #2e3340"/></a>':'')
     +(c.obs_tecnico?'<div style="font-size:12px;color:#a8b0c0;margin-top:8px">📝 '+c.obs_tecnico+'</div>':'')
     +(puedeActuar?('<label style="display:block;margin-top:12px">Observación (opcional)</label><textarea id="det-obs" placeholder="Ej: NAP saturada, se liberaron 4 puertos..."></textarea>'
       +'<div class="actions"><button class="btn-ver" id="det-verificado">✓ Verificado</button><button class="btn-amp" id="det-ampliada">↑ Ampliada</button></div>'):'')
