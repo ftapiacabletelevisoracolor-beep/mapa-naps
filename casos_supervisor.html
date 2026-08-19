@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
-<title>Mapa NAPs</title>
+<title>Panel de Clientes con NAPs a Revisar</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -63,8 +63,8 @@
 
 <div id="login">
   <div class="card">
-    <h1>📡 Mapa NAPs</h1>
-    <p>Casos de clientes sin conexión asignados a tu NAP.</p>
+    <h1>📡 Panel de Clientes con NAPs a Revisar</h1>
+    <p>Casos de clientes pendientes de conexión.</p>
     <label>Tu nombre</label>
     <select id="li-nombre"></select>
     <label>Clave</label>
@@ -166,7 +166,9 @@ document.querySelectorAll('.tab').forEach(function(t){
 
 // ── Cargar casos del técnico logueado ──
 function cargarCasos(){
-  var url=API_URL+'?pass='+encodeURIComponent(ST.pass)+'&accion=casos&tecnico='+encodeURIComponent(ST.nombre);
+  // Sin filtro por técnico: los dos supervisores ven la misma lista completa
+  // de casos, así si uno está de vacaciones el otro lo puede ver igual.
+  var url=API_URL+'?pass='+encodeURIComponent(ST.pass)+'&accion=casos';
   fetch(url).then(function(r){return r.json();}).then(function(d){
     if(!d.ok){ toast('Error: '+d.error); return; }
     ST.casos=d.casos||[];
