@@ -120,8 +120,6 @@
       <input type="text" id="f-cli-nombre"/>
       <label>Dirección</label>
       <input type="text" id="f-direccion"/>
-      <label>Supervisor NAP asignado</label>
-      <select id="f-tecnico"><option value="">Elegí un supervisor...</option></select>
       <label>Observaciones (opcional)</label>
       <textarea id="f-obs" rows="3" placeholder="Ej: cliente sin luz en el ONT, ya reinicié el equipo..."></textarea>
       <label>Foto o captura de la orden (opcional)</label>
@@ -180,8 +178,6 @@ function toast(msg){
   t.textContent=msg; t.style.display='block';
   clearTimeout(t._h); t._h=setTimeout(function(){t.style.display='none';},2600);
 }
-
-document.getElementById('f-tecnico').innerHTML='<option value="">Elegí un supervisor...</option>'+SUPERVISORES_NAP.map(function(n){return '<option>'+n+'</option>';}).join('');
 
 // ── Foto de la orden: se comprime en el navegador antes de mandarla, para
 // que no pese varios MB (fotos de celular) y el POST al Apps Script no
@@ -368,11 +364,11 @@ document.getElementById('crear-btn').addEventListener('click', function(){
   var cliNro=document.getElementById('f-cli-nro').value.trim();
   var cliNom=document.getElementById('f-cli-nombre').value.trim();
   var dir=document.getElementById('f-direccion').value.trim();
-  var tec=document.getElementById('f-tecnico').value;
+  var tec=SUPERVISORES_NAP.join(', '); // va siempre a los dos supervisores, no se elige
   var obs=document.getElementById('f-obs').value.trim();
   var msg=document.getElementById('crear-msg');
   msg.style.display='none';
-  if(!cliNro||!dir||!tec){ msg.style.color='#e05252'; msg.textContent='Completá cliente, dirección y supervisor.'; msg.style.display='block'; return; }
+  if(!cliNro||!dir){ msg.style.color='#e05252'; msg.textContent='Completá cliente y dirección.'; msg.style.display='block'; return; }
   var n=ST.napSeleccionada;
   var btn=document.getElementById('crear-btn'); btn.disabled=true;
   fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
@@ -387,11 +383,10 @@ document.getElementById('crear-btn').addEventListener('click', function(){
   .then(function(r){return r.json();})
   .then(function(d){
     if(d.ok){
-      msg.style.color='#4fcf8a'; msg.textContent='✓ Caso creado y asignado a '+tec; msg.style.display='block';
+      msg.style.color='#4fcf8a'; msg.textContent='✓ Caso creado y enviado a los dos supervisores'; msg.style.display='block';
       document.getElementById('f-cli-nro').value='';
       document.getElementById('f-cli-nombre').value='';
       document.getElementById('f-direccion').value='';
-      document.getElementById('f-tecnico').value='';
       document.getElementById('f-obs').value='';
       document.getElementById('f-foto').value='';
       document.getElementById('foto-preview-wrap').style.display='none';
@@ -466,7 +461,7 @@ function renderTabla(){
   });
 }
 
-// ── Detalle: cerrar el caso (Resuelto) tras reprovisionar al cliente ──
+// ── Detalle: cerrar el caso (Resuelto) cuando ya se puede sacar la orden a la calle ──
 function abrirDetalle(c){
   var bg=document.getElementById('detail-bg');
   var d=document.getElementById('detail');
@@ -478,7 +473,7 @@ function abrirDetalle(c){
     +(c.observaciones?'<div style="font-size:12px;color:#a8b0c0;margin-top:8px">📝 <b>Al crear:</b> '+c.observaciones+'</div>':'')
     +(c.imagen_url?'<a href="'+c.imagen_url+'" target="_blank"><img src="'+c.imagen_url+'" style="max-width:100%;border-radius:8px;margin-top:8px;border:1px solid #2e3340"/></a>':'')
     +(c.obs_tecnico?'<div style="font-size:12px;color:#a8b0c0;margin-top:8px">💬 <b>Supervisor:</b> '+c.obs_tecnico+'</div>':'')
-    +(puedeCerrar?'<div class="actions"><button class="btn-res" id="det-resuelto">✓ Marcar Resuelto (ya reprovisionado)</button></div>':'')
+    +(puedeCerrar?'<div class="actions"><button class="btn-res" id="det-resuelto">🚚 Ya se puede sacar orden a la calle</button></div>':'')
     +'<div class="actions"><button class="btn-can" id="det-cancelar">✕ Cancelar caso</button></div>'
     +'<button class="btn-cerrar" id="det-cerrar">Cerrar</button>';
   bg.classList.add('show');
